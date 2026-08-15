@@ -129,6 +129,88 @@ router.get('/users/me', authenticate, (req: AuthenticatedRequest, res: Response)
   });
 });
 
+router.get('/drivers/me/dashboard', authenticate, authorize('DRIVER'), (req: AuthenticatedRequest, res: Response) => {
+  const user = store.users.get(req.user!.id);
+  const driver = Array.from(store.drivers.values()).find(d => d.userId === req.user!.id);
+  const wallet = store.wallets.get(req.user!.id);
+  const vehicle = driver ? Array.from(store.vehicles.values()).find(v => v.driverId === driver.id) : null;
+
+  return res.json({
+    success: true,
+    data: {
+      driverName: user?.fullName || 'Rahul Sharma',
+      rating: driver?.rating || 4.8,
+      totalRidesCount: driver?.totalRides || 512,
+      todayEarnings: 2350,
+      todayRides: 12,
+      onlineMinutes: 390,
+      acceptanceRate: driver?.acceptanceRate || 92,
+      walletBalance: wallet ? wallet.balance : 4250,
+      isOnline: driver?.status === 'ONLINE' || driver?.status === 'BUSY',
+      vehicle,
+      user,
+    },
+  });
+});
+
+router.post('/drivers/me/profile', authenticate, authorize('DRIVER'), (req: AuthenticatedRequest, res: Response) => {
+  const { fullName, email, make, model, licensePlate, color } = req.body;
+  const user = store.users.get(req.user!.id);
+  if (user) {
+    if (fullName) user.fullName = fullName;
+    if (email) user.email = email;
+    store.users.set(user.id, user);
+  }
+
+  const driver = Array.from(store.drivers.values()).find(d => d.userId === req.user!.id);
+  if (driver) {
+    const vehicle = Array.from(store.vehicles.values()).find(v => v.driverId === driver.id);
+    if (vehicle) {
+      if (make) vehicle.make = make;
+      if (model) vehicle.model = model;
+      if (licensePlate) vehicle.licensePlate = licensePlate;
+      if (color) vehicle.color = color;
+      store.vehicles.set(vehicle.id, vehicle);
+    }
+  }
+
+  return res.json({ success: true, data: { message: 'Profile updated successfully', user } });
+});
+
+router.post('/drivers/me/online', authenticate, authorize('DRIVER'), (req: AuthenticatedRequest, res: Response) => {
+  const driver = Array.from(store.drivers.values()).find(d => d.userId === req.user!.id);
+  if (driver) {
+    driver.status = 'ONLINE';
+    store.drivers.set(driver.id, driver);
+  }
+  return res.json({ success: true, data: { status: 'ONLINE' } });
+});
+
+router.post('/drivers/me/offline', authenticate, authorize('DRIVER'), (req: AuthenticatedRequest, res: Response) => {
+  const driver = Array.from(store.drivers.values()).find(d => d.userId === req.user!.id);
+  if (driver) {
+    driver.status = 'OFFLINE';
+    store.drivers.set(driver.id, driver);
+  }
+  return res.json({ success: true, data: { status: 'OFFLINE' } });
+});
+
+router.get('/drivers/earnings', authenticate, authorize('DRIVER'), (req: AuthenticatedRequest, res: Response) => {
+  return res.json({
+    success: true,
+    data: {
+      todayEarnings: 2350,
+      weeklyEarnings: 14250,
+      monthlyEarnings: 58900,
+      grossEarnings: 2850,
+      platformCommission: 350,
+      taxes: 150,
+      netEarnings: 2350,
+      totalEarnings: 2350,
+    },
+  });
+});
+
 router.get('/referrals', authenticate, (req: AuthenticatedRequest, res: Response) => {
   return res.json({
     success: true,
