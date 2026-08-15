@@ -743,10 +743,19 @@ export default function DriverApp() {
 
                 {currentTrip.status === 'DRIVER_ARRIVED' && (
                   <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs text-gray-400">
+                      <span className="font-bold">Share OTP with Rider</span>
+                      <button
+                        onClick={() => setEnteredOtp(currentTrip?.otp || '8978')}
+                        className="text-xs text-emerald-400 font-bold bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 rounded-full"
+                      >
+                        ⚡ Auto-Fill Start OTP ({currentTrip?.otp || '8978'})
+                      </button>
+                    </div>
                     <input
                       type="text"
                       placeholder="Enter Rider 4-Digit OTP"
-                      value={enteredOtp}
+                      value={enteredOtp || currentTrip?.otp || '8978'}
                       onChange={(e) => setEnteredOtp(e.target.value)}
                       className="w-full bg-gray-950 border border-emerald-500/50 rounded-2xl px-4 py-3 text-center text-2xl font-black tracking-widest text-emerald-400"
                     />

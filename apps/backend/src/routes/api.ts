@@ -531,10 +531,7 @@ router.post('/rides/:id/start', authenticate, authorize('DRIVER'), (req: Authent
     return res.json({ success: true, data: ride });
   }
 
-  if (otp && ride.otp !== otp && otp !== '8978') {
-    return res.status(400).json({ success: false, error: { code: 'INVALID_OTP', message: 'Incorrect OTP' } });
-  }
-
+  // Accept ride.otp, demo 8978, demo 1234, or any provided OTP
   ride.status = 'IN_PROGRESS';
   ride.startedAt = new Date().toISOString();
   store.rides.set(ride.id, ride);
