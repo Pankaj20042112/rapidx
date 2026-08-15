@@ -1,13 +1,13 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 import numpy as np
 
 app = FastAPI(
-    title="RideX AI Intelligence Microservice",
-    version="1.0.0",
-    description="Provides AI Driver Recommendation Ranking, Fraud & GPS Spoofing Detection, and AI Customer Support"
+    title="RideX AI Enterprise Subsystem",
+    version="2.0.0",
+    description="Python FastAPI Subsystem for AI Driver Ranking and Kinematic Fraud / GPS Spoofing Evaluation"
 )
 
 app.add_middleware(
@@ -18,76 +18,73 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Models
-class DriverCandidate(BaseModel):
+class CandidateDriver(BaseModel):
     id: str
-    eta: float  # in minutes
-    distance: float  # in km
-    rating: float  # 1 to 5
-    acceptanceRate: float  # 0 to 100
-    cancellationRate: float  # 0 to 100
+    etaMinutes: float
+    distanceKm: float
+    rating: float
+    acceptanceRate: float
+    cancellationRate: float
 
-class RecommendationRequest(BaseModel):
-    drivers: List[DriverCandidate]
+class RankRequest(BaseModel):
+    drivers: List[CandidateDriver]
 
-class FraudCheckRequest(BaseModel):
+class FraudEvaluationRequest(BaseModel):
     driverId: str
     speedKmH: float
-    distanceJumpKm: float
-    timeDeltaSec: float
+    displacementKm: float
+    timeDeltaSeconds: float
 
-class SupportRequest(BaseModel):
-    prompt: str
-    rideId: Optional[str] = None
-    fareAmount: Optional[float] = None
+@app.get("/health")
+def health():
+    return {"status": "ok", "subsystem": "ai-fraud-engine"}
 
-@app.get("/")
-def read_root():
-    return {"service": "RideX AI Microservice", "status": "online"}
-
-@app.post("/recommend-drivers")
-def recommend_drivers(req: RecommendationRequest):
+@app.post("/v1/dispatch/rank")
+def rank_dispatch_candidates(req: RankRequest):
     if not req.drivers:
-        return {"ranked_drivers": []}
+        return {"rankedCandidates": []}
 
     ranked = []
     for d in req.drivers:
         # Score Formula:
-        # 40% ETA penalty + 25% distance penalty + 15% Rating + 10% Acceptance - 10% Cancellation
-        eta_score = max(0, 100 - (d.eta * 10))
-        dist_score = max(0, 100 - (d.distance * 15))
+        # Score = (0.35 * ETA) + (0.25 * Dist) + (0.15 * Rating) + (0.15 * AcceptRate) + (0.10 * CancelRate)
+        eta_score = max(0, 100 - (d.etaMinutes * 10))
+        dist_score = max(0, 100 - (d.distanceKm * 15))
         rating_score = (d.rating / 5.0) * 100
 
-        final_score = (
-            (0.40 * eta_score) +
+        composite_score = (
+            (0.35 * eta_score) +
             (0.25 * dist_score) +
             (0.15 * rating_score) +
-            (0.10 * d.acceptanceRate) -
+            (0.15 * d.acceptanceRate) -
             (0.10 * d.cancellationRate)
         )
         ranked.append({
             "driverId": d.id,
-            "aiScore": round(float(final_score), 2),
-            "eta": d.eta,
+            "score": round(float(composite_score), 2),
+            "etaMinutes": d.etaMinutes,
             "rating": d.rating
         })
 
-    # Sort descending by aiScore
-    ranked.sort(key=lambda x: x["aiScore"], reverse=True)
-    return {"ranked_drivers": ranked}
+    ranked.sort(key=lambda x: x["score"], reverse=True)
+    return {"rankedCandidates": ranked}
 
-@app.post("/detect-fraud")
-def detect_fraud(req: FraudCheckRequest):
-    reasons = []
+@app.post("/v1/fraud/evaluate")
+def evaluate_kinematic_fraud(req: FraudEvaluationRequest):
+    flags = []
     risk_score = 0.05
 
-    # Fraud criteria
+    # Kinematic speed ceiling check (>180 km/h)
     if req.speedKmH > 180:
         risk_score += 0.60
-        reasons.append("Impossible vehicular speed recorded (>180 km/h)")
-    if req.timeDeltaSec > 0 and (req.distanceJumpKm / (req.timeDeltaSec / 3600.0)) > 250:
-        risk_score += 0.35
-        reasons.append("GPS spatial jump anomaly detected")
+        flags.append("KINEMATIC_SPEED_CEILING_EXCEEDED")
+
+    # Displacement jump check (>250 km/h instantaneous equivalent)
+    if req.timeDeltaSeconds > 0:
+        calculated_velocity = (req.displacementKm / (req.timeDeltaSeconds / 3600.0))
+        if calculated_velocity > 250:
+            risk_score += 0.35
+            flags.append("INSTANTANEOUS_GPS_DISPLACEMENT_JUMP")
 
     risk_score = min(0.99, risk_score)
     risk_level = "HIGH" if risk_score > 0.60 else ("MEDIUM" if risk_score > 0.30 else "LOW")
@@ -96,29 +93,8 @@ def detect_fraud(req: FraudCheckRequest):
         "driverId": req.driverId,
         "riskScore": round(float(risk_score), 2),
         "riskLevel": risk_level,
-        "reasons": reasons if reasons else ["Telemetry within normal bounds"]
+        "gpsSpoofingFlags": flags if flags else ["TELEMETRY_VALID"]
     }
-
-@app.post("/support-assistant")
-def support_assistant(req: SupportRequest):
-    prompt_lower = req.prompt.lower()
-    
-    if "refund" in prompt_lower or "cancel" in prompt_lower:
-        return {
-            "reply": "I understand your concern regarding refund or cancellation charges. I am flagging this ticket for immediate human support agent review to process your request.",
-            "requiresHumanHandoff": True
-        }
-    elif "extra" in prompt_lower or "fare" in prompt_lower:
-        fare_text = f" of ${req.fareAmount:.2f}" if req.fareAmount else ""
-        return {
-            "reply": f"The total fare{fare_text} includes base price, time rate, distance fee, and applicable taxes. Peak surge multiplier applies when driver supply is limited in your pick-up area.",
-            "requiresHumanHandoff": False
-        }
-    else:
-        return {
-            "reply": "Hello! I am RideX Assistant. How can I help you with your trip, driver details, or receipt today?",
-            "requiresHumanHandoff": False
-        }
 
 if __name__ == "__main__":
     import uvicorn
