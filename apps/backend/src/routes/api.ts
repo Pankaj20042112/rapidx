@@ -400,6 +400,28 @@ router.post('/rides/:id/complete', authenticate, authorize('DRIVER'), (req: Auth
   return res.json({ success: true, data: ride });
 });
 
+router.post('/rides/:id/cancel', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  const { reason = 'User requested cancellation' } = req.body;
+  const ride = store.rides.get(req.params.id);
+  if (!ride) return res.status(404).json({ success: false, error: { code: 'RIDE_NOT_FOUND', message: 'Ride missing' } });
+
+  ride.status = 'CANCELLED';
+  (ride as any).cancellationReason = reason;
+
+  if (ride.driverId) {
+    const driver = store.drivers.get(ride.driverId);
+    if (driver) {
+      driver.status = 'ONLINE';
+      store.drivers.set(driver.id, driver);
+    }
+  }
+
+  store.rides.set(ride.id, ride);
+  store.addAuditLog(req.user!.id, req.user!.role, 'RIDE_CANCELLED', `/rides/${ride.id}/cancel`, { reason });
+
+  return res.json({ success: true, data: { ride, message: 'Ride cancelled successfully' } });
+});
+
 // ==========================================
 // 7. PAYMENTS & WALLET MODULE (/payments, /wallet)
 // ==========================================

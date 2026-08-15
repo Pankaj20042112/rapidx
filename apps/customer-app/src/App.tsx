@@ -39,6 +39,9 @@ export default function CustomerApp() {
   const [ratingModal, setRatingModal] = useState(false);
   const [ratingStars, setRatingStars] = useState(5);
   const [ratingFeedback, setRatingFeedback] = useState('Smooth and safe ride!');
+  const [cancelModal, setCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('⏱️ Driver taking too long to arrive');
+  const [customCancelReason, setCustomCancelReason] = useState('');
 
   // Wallet & User Profile
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -245,6 +248,26 @@ export default function CustomerApp() {
     }
   };
 
+  const handleCancelRide = async () => {
+    if (!activeRide?.id || !token) return;
+    const finalReason = customCancelReason.trim() || cancelReason;
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/rides/${activeRide.id}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: finalReason })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`❌ Ride Cancelled. Reason: "${finalReason}"`);
+        setCancelModal(false);
+        setActiveRide(null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const submitRatingAndDismiss = async () => {
     if (activeRide?.id) {
       try {
@@ -379,12 +402,20 @@ export default function CustomerApp() {
                     Rate Driver & Close Receipt
                   </button>
                 ) : (
-                  <button
-                    onClick={() => setSosModal(true)}
-                    className="w-full bg-rose-600/20 border border-rose-500 text-rose-400 font-bold py-3 rounded-xl flex items-center justify-center text-sm"
-                  >
-                    <ShieldAlert className="w-4 h-4 mr-2" /> {dict.sosEmergency || 'SOS Emergency'}
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setSosModal(true)}
+                      className="flex-1 bg-rose-600/20 border border-rose-500/60 text-rose-400 font-bold py-3 rounded-xl flex items-center justify-center text-xs"
+                    >
+                      <ShieldAlert className="w-4 h-4 mr-1.5" /> {dict.sosEmergency || 'SOS'}
+                    </button>
+                    <button
+                      onClick={() => setCancelModal(true)}
+                      className="flex-1 bg-gray-800 hover:bg-rose-950/40 border border-gray-700 hover:border-rose-500/50 text-gray-300 hover:text-rose-400 font-bold py-3 rounded-xl flex items-center justify-center text-xs transition"
+                    >
+                      <X className="w-4 h-4 mr-1.5" /> Cancel Ride
+                    </button>
+                  </div>
                 )}
               </div>
             ) : (
@@ -645,6 +676,68 @@ export default function CustomerApp() {
             <button onClick={submitRatingAndDismiss} className="w-full bg-emerald-500 text-gray-950 font-black py-3.5 rounded-xl hover:bg-emerald-400 text-sm">
               Submit Rating & Book New Ride
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* CANCELLATION REASON MODAL OVERLAY */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <h3 className="font-bold text-lg text-white">Cancel Ride</h3>
+              <button onClick={() => setCancelModal(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400">Please select a reason for cancelling this trip:</p>
+
+            {/* Reason Options */}
+            <div className="space-y-2 text-xs">
+              {[
+                "⏱️ Driver taking too long to arrive",
+                "📍 Pickup location entered by mistake",
+                "🚗 Driver requested to cancel / offline ride",
+                "💳 Payment method / price issue",
+                "❌ Changed my mind / plans changed",
+              ].map((reasonText, idx) => (
+                <label
+                  key={idx}
+                  onClick={() => setCancelReason(reasonText)}
+                  className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition ${
+                    cancelReason === reasonText ? 'bg-rose-950/40 border-rose-500 text-white font-bold' : 'bg-gray-950 border-gray-800 text-gray-400'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cancel_reason"
+                    checked={cancelReason === reasonText}
+                    onChange={() => setCancelReason(reasonText)}
+                    className="accent-rose-500"
+                  />
+                  <span>{reasonText}</span>
+                </label>
+              ))}
+            </div>
+
+            {/* Custom Input */}
+            <input
+              type="text"
+              placeholder="Other reason (optional)..."
+              value={customCancelReason}
+              onChange={(e) => setCustomCancelReason(e.target.value)}
+              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
+            />
+
+            <div className="flex space-x-2 pt-2">
+              <button onClick={() => setCancelModal(false)} className="flex-1 bg-gray-800 text-gray-300 font-bold py-3 rounded-xl text-xs">
+                Keep Ride
+              </button>
+              <button onClick={handleCancelRide} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-xl text-xs shadow-lg shadow-rose-600/30">
+                Confirm Cancellation
+              </button>
+            </div>
           </div>
         </div>
       )}
