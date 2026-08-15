@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = 'http://localhost:4000';
+const BACKEND_URL = `http://${window.location.hostname}:4000`;
 const socket = io(BACKEND_URL);
 
 export default function DriverApp() {
