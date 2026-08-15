@@ -307,9 +307,13 @@ export default function CustomerApp() {
       });
       const data = await res.json();
       if (data.success) {
-        setActiveRide(data.data);
-        if (data.data.status === 'COMPLETED' && !ratingModal) {
-          setRatingModal(true);
+        if (data.data.status === 'COMPLETED') {
+          if (!ratingModal) setRatingModal(true);
+          setActiveRide(null);
+        } else if (data.data.status === 'CANCELLED') {
+          setActiveRide(null);
+        } else {
+          setActiveRide(data.data);
         }
       }
     } catch (e) {
@@ -691,7 +695,7 @@ export default function CustomerApp() {
             </div>
 
             {/* Active Ride Sheet */}
-            {activeRide ? (
+            {activeRide && activeRide.status !== 'COMPLETED' && activeRide.status !== 'CANCELLED' ? (
               <div className="glass-panel border border-indigo-500/50 rounded-3xl p-5 shadow-2xl space-y-3">
                 <div className="flex justify-between items-center border-b border-gray-800 pb-3">
                   <div>
