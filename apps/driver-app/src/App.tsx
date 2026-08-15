@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Power, Navigation, MapPin, DollarSign, Star, CheckCircle, 
-  Clock, ShieldCheck, Upload, AlertCircle, Phone, MessageSquare, Car, ArrowRight
+  Clock, ShieldCheck, Upload, AlertCircle, Phone, MessageSquare, Car, ArrowRight, Flame, Target, Trophy
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -21,22 +21,19 @@ export default function DriverApp() {
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [earnings, setEarnings] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'DUTY' | 'EARNINGS' | 'KYC'>('DUTY');
-
-  const [docType, setDocType] = useState('LICENSE');
-  const [docUrl, setDocUrl] = useState('');
+  const [incentive, setIncentive] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'DUTY' | 'HEATMAP' | 'EARNINGS' | 'KYC'>('DUTY');
 
   useEffect(() => {
     if (token) {
       fetchDriverProfile();
       fetchEarnings();
+      fetchIncentives();
     }
   }, [token]);
 
-  // Poll for searching rides when online
   useEffect(() => {
     if (!token || !isOnline || currentTrip) return;
-
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`${BACKEND_URL}/api/rides`, {
@@ -54,11 +51,9 @@ export default function DriverApp() {
         console.error(e);
       }
     }, 3000);
-
     return () => clearInterval(interval);
   }, [token, isOnline, currentTrip, incomingRequest]);
 
-  // 10s Dispatch Countdown Timer
   useEffect(() => {
     if (!incomingRequest || countdown <= 0) return;
     const timer = setInterval(() => {
@@ -72,17 +67,6 @@ export default function DriverApp() {
     }, 1000);
     return () => clearInterval(timer);
   }, [incomingRequest, countdown]);
-
-  // Simulate GPS WebSocket broadcast when on an active trip
-  useEffect(() => {
-    if (!currentTrip || !driverProfile) return;
-    const gpsInterval = setInterval(() => {
-      const simLat = 12.9716 + (Math.random() - 0.5) * 0.005;
-      const simLng = 77.5946 + (Math.random() - 0.5) * 0.005;
-      socket.emit('driver:location_update', { driverId: driverProfile.id, latitude: simLat, longitude: simLng });
-    }, 3000);
-    return () => clearInterval(gpsInterval);
-  }, [currentTrip, driverProfile]);
 
   const handleLogin = async () => {
     try {
@@ -117,6 +101,18 @@ export default function DriverApp() {
     }
   };
 
+  const fetchIncentives = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/incentives`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setIncentive(data.data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const toggleDuty = async () => {
     const endpoint = isOnline ? '/api/drivers/offline' : '/api/drivers/online';
     try {
@@ -125,11 +121,7 @@ export default function DriverApp() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        setIsOnline(!isOnline);
-      } else {
-        alert(data.error?.message || 'Action failed');
-      }
+      if (data.success) setIsOnline(!isOnline);
     } catch (e) {
       console.error(e);
     }
@@ -145,9 +137,6 @@ export default function DriverApp() {
       const data = await res.json();
       if (data.success) {
         setCurrentTrip(data.data);
-        setIncomingRequest(null);
-      } else {
-        alert(data.error?.message || 'Ride no longer available');
         setIncomingRequest(null);
       }
     } catch (e) {
@@ -176,11 +165,8 @@ export default function DriverApp() {
         body: JSON.stringify({ otp: enteredOtp })
       });
       const data = await res.json();
-      if (data.success) {
-        setCurrentTrip(data.data);
-      } else {
-        alert(data.error?.message || 'Invalid Ride OTP');
-      }
+      if (data.success) setCurrentTrip(data.data);
+      else alert('Invalid OTP');
     } catch (e) {
       console.error(e);
     }
@@ -215,23 +201,6 @@ export default function DriverApp() {
     }
   };
 
-  const uploadKycDoc = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/kyc/upload`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ documentType: docType, documentUrl: docUrl || 'https://via.placeholder.com/400x250?text=License' })
-      });
-      const data = await res.json();
-      if (data.success) {
-        alert('Document uploaded successfully for Admin Review!');
-        setDocUrl('');
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   if (!token) {
     return (
       <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
@@ -240,7 +209,7 @@ export default function DriverApp() {
             <Car className="w-6 h-6" />
           </div>
           <h2 className="text-2xl font-black mb-1">Driver Partner Portal</h2>
-          <p className="text-gray-400 text-xs mb-6">Sign in to go online and start accepting trip requests</p>
+          <p className="text-gray-400 text-xs mb-6">Sign in to accept trip requests and earn daily incentives</p>
 
           <div className="space-y-4">
             <div>
@@ -280,13 +249,10 @@ export default function DriverApp() {
           </div>
         </div>
 
-        {/* Online / Offline Power Toggle */}
         <button
           onClick={toggleDuty}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-full font-bold text-xs border transition shadow-lg ${
-            isOnline
-              ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-emerald-500/10'
-              : 'bg-gray-800 border-gray-700 text-gray-400'
+          className={`flex items-center space-x-2 px-4 py-2 rounded-full font-bold text-xs border transition ${
+            isOnline ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-gray-800 border-gray-700 text-gray-400'
           }`}
         >
           <Power className={`w-4 h-4 ${isOnline ? 'text-emerald-400 animate-pulse' : 'text-gray-500'}`} />
@@ -295,32 +261,35 @@ export default function DriverApp() {
       </header>
 
       {/* Main Body */}
-      <main className="flex-1 relative p-4 max-w-xl mx-auto w-full flex flex-col justify-between">
+      <main className="flex-1 relative p-4 max-w-xl mx-auto w-full flex flex-col justify-between pb-20">
 
-        {/* DUTY & TRIP TAB */}
+        {/* DUTY TAB */}
         {activeTab === 'DUTY' && (
           <div className="flex-1 flex flex-col justify-between">
-            {/* Status Card */}
-            <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl mb-4 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-gray-400">Rating</span>
-                <div className="flex items-center text-yellow-400 font-bold text-sm">
-                  <Star className="w-4 h-4 fill-current mr-1" /> {driverProfile?.rating || '4.85'}
+            {/* Driver Incentive Progress Tracker Card */}
+            {incentive && (
+              <div className="bg-gradient-to-r from-emerald-950 to-gray-900 border border-emerald-500/40 p-4 rounded-2xl mb-4 flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/30">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-xs text-white">{incentive.title}</h4>
+                    <p className="text-[11px] text-emerald-400 font-semibold">{incentive.description}</p>
+                    {/* Progress Bar */}
+                    <div className="w-36 h-2 bg-gray-800 rounded-full mt-1.5 overflow-hidden border border-gray-700">
+                      <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${(incentive.currentRides / incentive.targetRides) * 100}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-400">Bonus</span>
+                  <div className="text-base font-black text-emerald-400">+₹{incentive.rewardBonus}</div>
                 </div>
               </div>
-              <div className="border-r border-gray-800 h-8"></div>
-              <div>
-                <span className="text-xs text-gray-400">Rides Completed</span>
-                <div className="font-bold text-sm text-white">{driverProfile?.totalRides || 0}</div>
-              </div>
-              <div className="border-r border-gray-800 h-8"></div>
-              <div>
-                <span className="text-xs text-gray-400">Acceptance</span>
-                <div className="font-bold text-sm text-emerald-400">{driverProfile?.acceptanceRate || 100}%</div>
-              </div>
-            </div>
+            )}
 
-            {/* Simulated Live Turn-by-Turn Map */}
+            {/* Map Turn-by-Turn Simulation Container */}
             <div className="flex-1 bg-gray-900 border border-gray-800 rounded-3xl min-h-[300px] relative overflow-hidden flex items-center justify-center mb-4">
               <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:24px_24px]"></div>
 
@@ -328,19 +297,19 @@ export default function DriverApp() {
                 <div className="text-center p-6 z-10">
                   <Power className="w-12 h-12 text-gray-600 mx-auto mb-2" />
                   <h3 className="font-bold text-gray-300">You are Offline</h3>
-                  <p className="text-xs text-gray-500">Switch status to ONLINE to receive incoming ride dispatch requests</p>
+                  <p className="text-xs text-gray-500">Switch status to ONLINE to receive incoming trip requests</p>
                 </div>
               )}
 
               {isOnline && !currentTrip && !incomingRequest && (
                 <div className="text-center p-6 z-10 animate-pulse">
                   <Navigation className="w-12 h-12 text-emerald-400 mx-auto mb-2" />
-                  <h3 className="font-bold text-white">Searching Nearby Requests...</h3>
-                  <p className="text-xs text-gray-400">PostGIS Redis Geo Engine scanning active zone</p>
+                  <h3 className="font-bold text-white">Scanning Active Zone...</h3>
+                  <p className="text-xs text-gray-400">MongoDB 2dsphere Redis Geo Engine active</p>
                 </div>
               )}
 
-              {/* INCOMING DISPATCH MODAL CARD */}
+              {/* INCOMING REQUEST MODAL CARD */}
               {incomingRequest && (
                 <div className="absolute inset-x-4 bottom-4 glass-panel border border-emerald-500/50 rounded-3xl p-5 shadow-2xl z-20">
                   <div className="flex justify-between items-center mb-3">
@@ -368,12 +337,8 @@ export default function DriverApp() {
                   </div>
 
                   <div className="flex space-x-2">
-                    <button onClick={() => setIncomingRequest(null)} className="flex-1 bg-gray-800 text-gray-400 font-bold py-3 rounded-xl">
-                      Decline
-                    </button>
-                    <button onClick={acceptRide} className="flex-1 bg-emerald-500 text-gray-950 font-black py-3 rounded-xl hover:bg-emerald-400">
-                      ACCEPT TRIP
-                    </button>
+                    <button onClick={() => setIncomingRequest(null)} className="flex-1 bg-gray-800 text-gray-400 font-bold py-3 rounded-xl">Decline</button>
+                    <button onClick={acceptRide} className="flex-1 bg-emerald-500 text-gray-950 font-black py-3 rounded-xl">ACCEPT TRIP</button>
                   </div>
                 </div>
               )}
@@ -381,14 +346,12 @@ export default function DriverApp() {
               {/* ACTIVE TRIP CONTROL SHEET */}
               {currentTrip && (
                 <div className="absolute inset-x-4 bottom-4 glass-panel border border-emerald-500 rounded-3xl p-5 shadow-2xl z-20">
-                  <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-3">
+                  <div className="flex justify-between items-center border-b border-gray-800 pb-3 mb-3">
                     <div>
                       <span className="text-xs text-emerald-400 font-bold uppercase">{currentTrip.status.replace('_', ' ')}</span>
                       <div className="text-xs text-gray-300">{currentTrip.destinationAddress}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-black text-emerald-400">${currentTrip.estimatedFare}</div>
-                    </div>
+                    <div className="text-lg font-black text-emerald-400">${currentTrip.estimatedFare}</div>
                   </div>
 
                   {currentTrip.status === 'DRIVER_ASSIGNED' && (
@@ -413,7 +376,7 @@ export default function DriverApp() {
                   )}
 
                   {currentTrip.status === 'IN_PROGRESS' && (
-                    <button onClick={completeTrip} className="w-full bg-rose-500 text-white font-extrabold py-3.5 rounded-xl hover:bg-rose-600">
+                    <button onClick={completeTrip} className="w-full bg-rose-500 text-white font-extrabold py-3.5 rounded-xl">
                       Complete Ride & Collect Fare
                     </button>
                   )}
@@ -423,98 +386,62 @@ export default function DriverApp() {
           </div>
         )}
 
-        {/* EARNINGS TAB */}
-        {activeTab === 'EARNINGS' && (
+        {/* DEMAND HEATMAP TAB */}
+        {activeTab === 'HEATMAP' && (
           <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl text-center">
-              <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Total Earnings</span>
-              <div className="text-4xl font-black text-emerald-400 mt-1">${earnings?.totalEarnings?.toFixed(2) || '0.00'}</div>
-              <div className="text-xs text-gray-500 mt-2">After 15% platform commission & taxes</div>
-            </div>
-
-            <h3 className="font-bold text-sm text-gray-300">Recent Completed Trips</h3>
-            <div className="space-y-2">
-              {earnings?.earnings?.map((e: any) => (
-                <div key={e.id} className="bg-gray-900 border border-gray-800 p-4 rounded-2xl flex justify-between items-center">
+            <h3 className="font-bold text-sm text-gray-200">Zone Demand Heatmap</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                { zone: 'Tech Park / Business District', demand: 'HIGH DEMAND', multiplier: '1.5x Surge', color: 'border-rose-500 bg-rose-950/20 text-rose-400' },
+                { zone: 'Airport Terminal 2', demand: 'HIGH DEMAND', multiplier: '1.4x Surge', color: 'border-rose-500 bg-rose-950/20 text-rose-400' },
+                { zone: 'Central Mall Downtown', demand: 'MODERATE DEMAND', multiplier: '1.2x Surge', color: 'border-yellow-500 bg-yellow-950/20 text-yellow-400' },
+              ].map((z, i) => (
+                <div key={i} className={`p-4 rounded-2xl border ${z.color} flex justify-between items-center`}>
                   <div>
-                    <div className="font-bold text-sm">Ride #{e.rideId}</div>
-                    <div className="text-xs text-gray-400">Gross: ${e.grossFare} | Fee: -${e.platformCommission}</div>
+                    <div className="font-bold text-sm text-white">{z.zone}</div>
+                    <div className="text-xs font-semibold mt-0.5">{z.demand}</div>
                   </div>
-                  <div className="text-emerald-400 font-bold text-base">+${e.netEarnings}</div>
+                  <span className="px-3 py-1 bg-gray-950 rounded-full font-black text-xs">{z.multiplier}</span>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* KYC DOCUMENT TAB */}
-        {activeTab === 'KYC' && (
+        {/* EARNINGS TAB */}
+        {activeTab === 'EARNINGS' && (
           <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-800 p-5 rounded-3xl">
-              <div className="flex items-center space-x-3 mb-4">
-                <ShieldCheck className="w-6 h-6 text-emerald-400" />
-                <div>
-                  <h3 className="font-bold text-sm">Verification Status</h3>
-                  <p className="text-xs text-emerald-400 font-semibold">{driverProfile?.kycStatus || 'PENDING'}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-gray-400">Document Type</label>
-                  <select
-                    value={docType}
-                    onChange={(e) => setDocType(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white mt-1"
-                  >
-                    <option value="LICENSE">Driving License</option>
-                    <option value="RC">Vehicle RC</option>
-                    <option value="INSURANCE">Vehicle Insurance</option>
-                    <option value="GOVT_ID">National Govt ID</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-gray-400">Document Image URL</label>
-                  <input
-                    type="text"
-                    placeholder="https://document-url.com/file.jpg"
-                    value={docUrl}
-                    onChange={(e) => setDocUrl(e.target.value)}
-                    className="w-full bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-white mt-1"
-                  />
-                </div>
-
-                <button onClick={uploadKycDoc} className="w-full bg-emerald-500 text-gray-950 font-bold py-3 rounded-xl hover:bg-emerald-400">
-                  Upload Document for Admin Verification
-                </button>
-              </div>
+            <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl text-center">
+              <span className="text-xs text-gray-400 uppercase font-semibold">Total Earnings</span>
+              <div className="text-4xl font-black text-emerald-400 mt-1">${earnings?.totalEarnings?.toFixed(2) || '0.00'}</div>
             </div>
+          </div>
+        )}
+
+        {/* KYC TAB */}
+        {activeTab === 'KYC' && (
+          <div className="bg-gray-900 border border-gray-800 p-5 rounded-3xl">
+            <h3 className="font-bold text-sm mb-2">Verification Status</h3>
+            <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full font-bold text-xs">
+              APPROVED
+            </span>
           </div>
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <nav className="glass-panel border-t border-gray-800 py-3 px-6 flex justify-around sticky bottom-0 z-30">
-        <button
-          onClick={() => setActiveTab('DUTY')}
-          className={`flex flex-col items-center text-xs font-bold ${activeTab === 'DUTY' ? 'text-emerald-400' : 'text-gray-500'}`}
-        >
+      {/* Bottom Nav */}
+      <nav className="glass-panel border-t border-gray-800 py-3 px-6 flex justify-around fixed bottom-0 left-0 right-0 z-30 max-w-xl mx-auto">
+        <button onClick={() => setActiveTab('DUTY')} className={`flex flex-col items-center text-[10px] font-bold ${activeTab === 'DUTY' ? 'text-emerald-400' : 'text-gray-500'}`}>
           <Car className="w-5 h-5 mb-1" /> Duty
         </button>
-
-        <button
-          onClick={() => setActiveTab('EARNINGS')}
-          className={`flex flex-col items-center text-xs font-bold ${activeTab === 'EARNINGS' ? 'text-emerald-400' : 'text-gray-500'}`}
-        >
+        <button onClick={() => setActiveTab('HEATMAP')} className={`flex flex-col items-center text-[10px] font-bold ${activeTab === 'HEATMAP' ? 'text-emerald-400' : 'text-gray-500'}`}>
+          <Flame className="w-5 h-5 mb-1" /> Heatmap
+        </button>
+        <button onClick={() => setActiveTab('EARNINGS')} className={`flex flex-col items-center text-[10px] font-bold ${activeTab === 'EARNINGS' ? 'text-emerald-400' : 'text-gray-500'}`}>
           <DollarSign className="w-5 h-5 mb-1" /> Earnings
         </button>
-
-        <button
-          onClick={() => setActiveTab('KYC')}
-          className={`flex flex-col items-center text-xs font-bold ${activeTab === 'KYC' ? 'text-emerald-400' : 'text-gray-500'}`}
-        >
-          <ShieldCheck className="w-5 h-5 mb-1" /> KYC Docs
+        <button onClick={() => setActiveTab('KYC')} className={`flex flex-col items-center text-[10px] font-bold ${activeTab === 'KYC' ? 'text-emerald-400' : 'text-gray-500'}`}>
+          <ShieldCheck className="w-5 h-5 mb-1" /> KYC
         </button>
       </nav>
     </div>
