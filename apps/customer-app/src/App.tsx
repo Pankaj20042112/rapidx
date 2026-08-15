@@ -14,6 +14,14 @@ export default function CustomerApp() {
   const [phone, setPhone] = useState('+18888888888');
   const [otp, setOtp] = useState('123456');
 
+  // Auth Screen State
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER'>('REGISTER');
+  const [fullName, setFullName] = useState('Alex Johnson');
+  const [email, setEmail] = useState('alex.johnson@ridex.com');
+  const [referralInput, setReferralInput] = useState('RIDEX50');
+  const [otpSent, setOtpSent] = useState(false);
+  const [resendTimer, setResendTimer] = useState(30);
+
   // Navigation Tab State
   const [currentTab, setCurrentTab] = useState<'HOME' | 'RIDES' | 'ACTIVITY' | 'WALLET' | 'PROFILE'>('HOME');
   const [language, setLanguage] = useState<'en' | 'hi' | 'gu'>('en');
@@ -84,12 +92,31 @@ export default function CustomerApp() {
     }
   };
 
-  const handleLogin = async () => {
+  const sendOtp = async () => {
+    if (!phone) return alert('Please enter a valid phone number');
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setOtpSent(true);
+        setOtp('123456');
+        setResendTimer(30);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp, role: 'CUSTOMER', fullName: 'Alex Johnson' })
+        body: JSON.stringify({ phone, otp, role: 'CUSTOMER', fullName: authMode === 'REGISTER' ? fullName : undefined })
       });
       const data = await res.json();
       if (data.success) {
@@ -97,11 +124,159 @@ export default function CustomerApp() {
         localStorage.setItem('ridex_cust_token', data.data.token);
         fetchProfile();
         fetchEstimate();
+      } else {
+        alert(data.error?.message || 'Invalid OTP');
       }
     } catch (e) {
       console.error(e);
     }
   };
+
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-gray-950 text-white flex flex-col justify-between p-5 font-sans relative overflow-hidden">
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px]"></div>
+
+        <header className="flex justify-between items-center z-10">
+          <div className="bg-indigo-600 p-2.5 rounded-2xl text-white font-black text-xl flex items-center shadow-lg shadow-indigo-600/30">
+            <Car className="w-6 h-6 mr-1.5" /> Ride<span className="text-emerald-400">X</span>
+          </div>
+
+          <div className="flex bg-gray-900 border border-gray-800 rounded-full p-1 text-xs font-bold">
+            {(['en', 'hi', 'gu'] as const).map(lang => (
+              <button
+                key={lang}
+                onClick={() => setLanguage(lang)}
+                className={`px-3 py-1 rounded-full uppercase transition ${language === lang ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                {lang}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        <div className="my-auto max-w-md w-full mx-auto z-10 glass-panel border border-gray-800 p-6 rounded-3xl shadow-2xl">
+          <div className="flex bg-gray-900 border border-gray-800 rounded-2xl p-1 mb-6">
+            <button
+              onClick={() => { setAuthMode('REGISTER'); setOtpSent(false); }}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${authMode === 'REGISTER' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Create Account
+            </button>
+            <button
+              onClick={() => { setAuthMode('LOGIN'); setOtpSent(false); }}
+              className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${authMode === 'LOGIN' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-400 hover:text-white'}`}
+            >
+              Sign In
+            </button>
+          </div>
+
+          <h2 className="text-2xl font-black text-white mb-1">
+            {authMode === 'REGISTER' ? 'Register New Rider' : 'Welcome Back'}
+          </h2>
+          <p className="text-xs text-gray-400 mb-6">
+            {authMode === 'REGISTER' ? 'Enter your details to create a RideX account & get $50 bonus' : 'Enter your mobile number to sign in'}
+          </p>
+
+          {!otpSent ? (
+            <div className="space-y-4">
+              {authMode === 'REGISTER' && (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Full Name</label>
+                    <input
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="e.g. Alex Johnson"
+                      className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-400 uppercase">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. alex@example.com"
+                      className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 mt-1"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-gray-400 uppercase">Mobile Phone Number</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+18888888888"
+                  className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 mt-1"
+                />
+              </div>
+
+              {authMode === 'REGISTER' && (
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase">Referral Code (Optional)</label>
+                  <input
+                    type="text"
+                    value={referralInput}
+                    onChange={(e) => setReferralInput(e.target.value)}
+                    placeholder="RIDEX50"
+                    className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 mt-1 uppercase"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={sendOtp}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-xl text-sm shadow-lg shadow-indigo-600/30 active:scale-[0.98] transition mt-2"
+              >
+                Send OTP Verification Code
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-gray-900 border border-indigo-500/30 p-4 rounded-2xl text-center">
+                <p className="text-xs text-gray-400">OTP Sent to <span className="font-bold text-white">{phone}</span></p>
+                <button onClick={() => setOtp('123456')} className="mt-2 text-xs bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-3 py-1 rounded-full font-bold">
+                  ⚡ Auto-Fill Demo OTP (123456)
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-400 uppercase">Enter 6-Digit OTP</label>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  className="w-full bg-gray-900 border border-indigo-500 rounded-xl px-4 py-3 text-center text-2xl font-black tracking-widest text-emerald-400 focus:outline-none mt-1"
+                />
+              </div>
+
+              <button
+                onClick={handleVerifyOtp}
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black py-3.5 rounded-xl text-base shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition"
+              >
+                {authMode === 'REGISTER' ? 'Complete Registration' : 'Verify & Sign In'}
+              </button>
+
+              <div className="flex justify-between items-center text-xs text-gray-400 pt-2">
+                <button onClick={() => setOtpSent(false)} className="hover:text-white font-bold">← Change Phone</button>
+                <button onClick={sendOtp} className="text-indigo-400 font-bold hover:underline">Resend OTP</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <footer className="text-center text-[11px] text-gray-500 z-10">
+          By signing in, you agree to RideX Terms of Service & Privacy Policy
+        </footer>
+      </div>
+    );
+  }
 
   const fetchProfile = async () => {
     try {
@@ -585,6 +760,14 @@ export default function CustomerApp() {
                 <Share2 className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Sign Out Button */}
+            <button
+              onClick={() => { localStorage.removeItem('ridex_cust_token'); setToken(null); }}
+              className="w-full bg-rose-950/30 hover:bg-rose-900/50 border border-rose-500/40 text-rose-400 font-extrabold py-3.5 rounded-2xl text-xs flex items-center justify-center transition"
+            >
+              Sign Out / Switch Account
+            </button>
           </div>
         )}
       </main>
