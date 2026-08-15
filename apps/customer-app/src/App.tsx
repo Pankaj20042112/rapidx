@@ -20,8 +20,8 @@ export default function CustomerApp() {
   const [dict, setDict] = useState<Record<string, string>>({});
 
   // Booking & Location
-  const [pickup, setPickup] = useState('Tech Park Downtown');
-  const [destination, setDestination] = useState('International Airport Terminal 2');
+  const [pickup, setPickup] = useState('LD collage of engineering');
+  const [destination, setDestination] = useState('Chandkheda, Ahmedabad');
   const [vehicleType, setVehicleType] = useState<'BIKE' | 'AUTO' | 'CAB_ECONOMY' | 'CAB_PREMIUM' | 'RENTAL' | 'OUTSTATION'>('CAB_ECONOMY');
   const [coupon, setCoupon] = useState('RIDEX50');
   const [estimate, setEstimate] = useState<any>(null);
@@ -389,7 +389,7 @@ export default function CustomerApp() {
               </div>
             ) : (
               /* Booking Bottom Sheet */
-              <div className="relative z-20 glass-panel rounded-t-3xl p-5 shadow-2xl border-t border-gray-800 max-w-xl mx-auto w-full mt-auto">
+              <div className="relative z-20 glass-panel rounded-t-3xl p-5 pb-24 shadow-2xl border-t border-gray-800 max-w-xl mx-auto w-full mt-auto max-h-[85vh] overflow-y-auto">
                 <h2 className="text-lg font-black mb-3 text-white">{dict.whereTo || 'Where are you going?'}</h2>
 
                 {/* Location Inputs */}
@@ -427,7 +427,7 @@ export default function CustomerApp() {
                       key={v.type}
                       onClick={() => setVehicleType(v.type as any)}
                       className={`p-3 rounded-2xl border flex flex-col items-center transition ${
-                        vehicleType === v.type ? 'border-indigo-500 bg-indigo-600/20' : 'border-gray-800 bg-gray-900/60'
+                        vehicleType === v.type ? 'border-indigo-500 bg-indigo-600/20 shadow-lg shadow-indigo-600/20' : 'border-gray-800 bg-gray-900/60'
                       }`}
                     >
                       <v.icon className={`w-6 h-6 mb-1 ${vehicleType === v.type ? 'text-indigo-400' : 'text-gray-400'}`} />
@@ -437,17 +437,26 @@ export default function CustomerApp() {
                   ))}
                 </div>
 
-                {/* Fare & "Why this price?" Card */}
+                {/* Fare & "Why this price?" Card & Confirm Ride Button */}
                 {estimate && (
-                  <div className="bg-gray-900 p-4 rounded-2xl mb-4 border border-gray-800 flex justify-between items-center">
-                    <div>
-                      <div className="text-2xl font-black text-emerald-400">${estimate.finalFare}</div>
-                      <button onClick={fetchWhyPrice} className="text-xs text-indigo-400 font-bold flex items-center mt-0.5 hover:underline">
-                        <Info className="w-3 h-3 mr-1" /> {dict.whyThisPrice || 'Why this price?'}
-                      </button>
+                  <div className="bg-gray-900 p-4 rounded-2xl mb-2 border border-indigo-500/40 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="text-2xl font-black text-emerald-400">${estimate.finalFare}</div>
+                        <button onClick={fetchWhyPrice} className="text-xs text-indigo-400 font-bold flex items-center mt-0.5 hover:underline">
+                          <Info className="w-3 h-3 mr-1" /> {dict.whyThisPrice || 'Why this price?'}
+                        </button>
+                      </div>
+                      <span className="text-xs bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 px-3 py-1 rounded-full font-bold">
+                        Coupon RIDEX50 Applied
+                      </span>
                     </div>
-                    <button onClick={confirmRide} className="bg-emerald-500 text-gray-950 font-black px-6 py-3 rounded-xl hover:bg-emerald-400 text-base">
-                      {dict.confirmRide || 'Confirm Ride'}
+
+                    <button
+                      onClick={confirmRide}
+                      className="w-full bg-emerald-500 text-gray-950 font-black py-3.5 rounded-xl hover:bg-emerald-400 text-base shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition"
+                    >
+                      {dict.confirmRide || 'Confirm Ride & Match Driver'}
                     </button>
                   </div>
                 )}
