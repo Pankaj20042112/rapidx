@@ -3,7 +3,7 @@ import {
   Car, Bike, ShieldAlert, Navigation, Wallet, Star, MessageSquare, 
   MapPin, Clock, Tag, CheckCircle2, Phone, Send, X, AlertTriangle, 
   Home, Compass, History, User, Globe, Share2, HelpCircle, Info, ChevronRight, Plus, Search,
-  Menu, Bell, Crosshair, SlidersHorizontal, Percent, Calendar, Users, Plane, ShieldCheck
+  Menu, Bell, Crosshair, SlidersHorizontal, Percent, Calendar, Users, Plane, ShieldCheck, LogOut, Check
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -70,7 +70,17 @@ export default function CustomerApp() {
   const [language, setLanguage] = useState<'en' | 'hi' | 'gu'>('en');
   const [dict, setDict] = useState<Record<string, string>>({});
 
-  // Location & Booking
+  // Interactive UI Feature Drawers & Modals
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [addStopOpen, setAddStopOpen] = useState(false);
+  const [intermediateStop, setIntermediateStop] = useState('');
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [routeFilter, setRouteFilter] = useState<'FASTEST' | 'AVOID_TOLLS' | 'EV_ONLY'>('FASTEST');
+  const [serviceModal, setServiceModal] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Location & Booking State
   const [pickup, setPickup] = useState('LD College of Engineering');
   const [destination, setDestination] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'BIKE' | 'AUTO' | 'CAB_ECONOMY' | 'CAB_PREMIUM'>('BIKE');
@@ -125,6 +135,11 @@ export default function CustomerApp() {
       socket.off(`chat:ride:${activeRide.id}`);
     };
   }, [activeRide?.id]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
   const fetchTranslations = async (lang: string) => {
     try {
@@ -254,6 +269,7 @@ export default function CustomerApp() {
         setWalletBalance(data.data.balance);
         setAddMoneyModal(false);
         fetchWallet();
+        showToast(`💰 Added $${addAmount} to Wallet successfully!`);
       }
     } catch (e) {
       console.error(e);
@@ -274,7 +290,10 @@ export default function CustomerApp() {
         })
       });
       const data = await res.json();
-      if (data.success) setActiveRide(data.data);
+      if (data.success) {
+        setActiveRide(data.data);
+        showToast('🚖 Searching for nearby RideX driver...');
+      }
     } catch (e) {
       console.error(e);
     }
@@ -317,13 +336,33 @@ export default function CustomerApp() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`❌ Ride Cancelled. Reason: "${finalReason}"`);
+        showToast(`❌ Ride Cancelled: "${finalReason}"`);
         setCancelModal(false);
         setActiveRide(null);
       }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleCurrentLocation = () => {
+    setPickup('LD College of Engineering, Navrangpura, Ahmedabad');
+    showToast('🎯 Pickup set to Current GPS Location');
+  };
+
+  const handleRecenterMap = () => {
+    showToast('🗺️ Map recentered on current pickup location');
+  };
+
+  const handleSelectQuickFilter = (placeLabel: string) => {
+    switch (placeLabel) {
+      case 'Home': setDestination('Home: 124 Innovation Avenue'); break;
+      case 'Work': setDestination('Work: Tech Hub Tower B'); break;
+      case 'Recent': setDestination('Recent: Airport Terminal 2'); break;
+      case 'Favorite': setDestination('Favorite: Central Mall Downtown'); break;
+      case 'More': setDestination('Saefliapur Lake, Paldi, Ahmedabad'); break;
+    }
+    showToast(`📍 Destination set to ${placeLabel}`);
   };
 
   const submitRatingAndDismiss = async () => {
@@ -340,6 +379,7 @@ export default function CustomerApp() {
     }
     setRatingModal(false);
     setActiveRide(null);
+    showToast('⭐ Thank you for rating your driver!');
   };
 
   // Dedicated Registration & Login Screen
@@ -491,10 +531,18 @@ export default function CustomerApp() {
 
   return (
     <div className="min-h-screen bg-[#070A12] text-white flex flex-col justify-between relative font-sans">
+      {/* Live Floating Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-5 py-2.5 rounded-full text-xs font-black shadow-2xl border border-indigo-400 animate-bounce">
+          {toastMessage}
+        </div>
+      )}
+
       {/* 1. Header Bar */}
       <header className="px-4 py-3.5 bg-gray-950/80 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between border-b border-gray-800/60 shadow-xl">
         <div className="flex items-center space-x-3">
-          <button className="p-2 bg-gray-900 border border-gray-800 rounded-xl text-gray-300">
+          {/* Hamburger Drawer Button */}
+          <button onClick={() => setDrawerOpen(true)} className="p-2 bg-gray-900 border border-gray-800 hover:border-indigo-500/50 rounded-xl text-gray-300 transition">
             <Menu className="w-5 h-5" />
           </button>
           <div className="text-2xl font-black tracking-tight text-white flex items-center">
@@ -503,14 +551,14 @@ export default function CustomerApp() {
         </div>
 
         <div className="flex items-center space-x-2.5">
-          {/* Notification Bell */}
-          <button className="p-2 bg-gray-900 border border-gray-800 rounded-xl text-gray-300 relative">
+          {/* Notification Bell Button */}
+          <button onClick={() => setNotifOpen(true)} className="p-2 bg-gray-900 border border-gray-800 hover:border-indigo-500/50 rounded-xl text-gray-300 relative transition">
             <Bell className="w-5 h-5" />
             <span className="w-2.5 h-2.5 bg-rose-500 rounded-full absolute top-1.5 right-1.5 ring-2 ring-gray-950"></span>
           </button>
 
           {/* Wallet Balance Badge */}
-          <div className="bg-indigo-950/60 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl flex items-center space-x-2 text-xs font-bold shadow-md">
+          <div onClick={() => setCurrentTab('WALLET')} className="bg-indigo-950/60 border border-indigo-500/40 px-3.5 py-1.5 rounded-xl flex items-center space-x-2 text-xs font-bold shadow-md cursor-pointer hover:bg-indigo-900/60 transition">
             <Wallet className="w-4 h-4 text-indigo-400" />
             <span className="text-indigo-300">${walletBalance.toFixed(2)}</span>
           </div>
@@ -520,7 +568,7 @@ export default function CustomerApp() {
       {/* 2. Main Scrollable Container */}
       <main className="flex-1 relative flex flex-col justify-between overflow-y-auto pb-24">
 
-        {/* HOME TAB (TARGET DESIGN MATCH) */}
+        {/* HOME TAB */}
         {currentTab === 'HOME' && (
           <div className="p-4 space-y-4 max-w-xl mx-auto w-full">
 
@@ -541,14 +589,29 @@ export default function CustomerApp() {
                   </div>
                 </div>
                 <div className="flex space-x-2">
-                  <button className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-bold flex items-center">
+                  <button onClick={handleCurrentLocation} className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-bold flex items-center transition">
                     <Crosshair className="w-3 h-3 mr-1 text-emerald-400" /> Current
                   </button>
-                  <button className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                  <button onClick={() => setAddStopOpen(!addStopOpen)} className={`p-1.5 rounded-lg transition ${addStopOpen ? 'bg-rose-600 text-white' : 'bg-indigo-600 text-white'}`}>
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </div>
+
+              {/* Optional Intermediate Stop Box */}
+              {addStopOpen && (
+                <div className="flex items-center space-x-3 bg-gray-950 border border-indigo-500/40 p-2.5 rounded-xl">
+                  <div className="w-2.5 h-2.5 bg-yellow-400 rounded-full"></div>
+                  <input
+                    type="text"
+                    value={intermediateStop}
+                    onChange={(e) => setIntermediateStop(e.target.value)}
+                    placeholder="Add intermediate stop (e.g. Saefliapur Lake)"
+                    className="bg-transparent w-full text-xs font-bold text-white placeholder-gray-500 focus:outline-none"
+                  />
+                  <button onClick={() => setAddStopOpen(false)} className="text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
+                </div>
+              )}
 
               {/* Dotted Connecting Line */}
               <div className="w-0.5 h-3 bg-gray-700 ml-1.5 border-dashed border-l"></div>
@@ -578,7 +641,11 @@ export default function CustomerApp() {
                 { label: 'Favorite', icon: Star },
                 { label: 'More', icon: ChevronRight },
               ].map((pill, i) => (
-                <button key={i} className="px-4 py-2 bg-gray-900/80 border border-gray-800 hover:border-indigo-500/50 rounded-xl text-xs font-bold text-gray-300 flex items-center space-x-1.5 whitespace-nowrap shadow-sm">
+                <button
+                  key={i}
+                  onClick={() => handleSelectQuickFilter(pill.label)}
+                  className="px-4 py-2 bg-gray-900/80 border border-gray-800 hover:border-indigo-500/50 rounded-xl text-xs font-bold text-gray-300 flex items-center space-x-1.5 whitespace-nowrap shadow-sm active:scale-95 transition"
+                >
                   <pill.icon className="w-3.5 h-3.5 text-indigo-400" />
                   <span>{pill.label}</span>
                 </button>
@@ -602,7 +669,7 @@ export default function CustomerApp() {
               </svg>
 
               {/* Map Floating Safety Center Badge */}
-              <div className="absolute left-3 bottom-3 bg-gray-950/90 border border-indigo-500/40 px-3 py-2 rounded-2xl flex items-center space-x-2 text-xs backdrop-blur-md shadow-lg">
+              <div onClick={() => setSosModal(true)} className="absolute left-3 bottom-3 bg-gray-950/90 border border-indigo-500/40 px-3 py-2 rounded-2xl flex items-center space-x-2 text-xs backdrop-blur-md shadow-lg cursor-pointer hover:border-indigo-400 transition">
                 <div className="p-1 bg-indigo-600 rounded-lg text-white">
                   <ShieldCheck className="w-4 h-4" />
                 </div>
@@ -613,11 +680,11 @@ export default function CustomerApp() {
               </div>
 
               {/* Map Control Buttons */}
-              <div className="absolute right-3 bottom-3 flex flex-col space-y-2">
-                <button className="p-2.5 bg-gray-950/90 border border-gray-800 text-gray-300 rounded-2xl shadow-lg backdrop-blur-md">
+              <div className="absolute right-3 bottom-3 flex flex-col space-y-2 z-10">
+                <button onClick={handleRecenterMap} className="p-2.5 bg-gray-950/90 border border-gray-800 hover:border-indigo-500 text-gray-300 rounded-2xl shadow-lg backdrop-blur-md transition">
                   <Crosshair className="w-4 h-4" />
                 </button>
-                <button className="p-2.5 bg-gray-950/90 border border-gray-800 text-gray-300 rounded-2xl shadow-lg backdrop-blur-md">
+                <button onClick={() => setFilterModalOpen(true)} className="p-2.5 bg-gray-950/90 border border-gray-800 hover:border-indigo-500 text-gray-300 rounded-2xl shadow-lg backdrop-blur-md transition">
                   <SlidersHorizontal className="w-4 h-4" />
                 </button>
               </div>
@@ -641,20 +708,20 @@ export default function CustomerApp() {
                 </div>
 
                 <div className="flex space-x-2 pt-2">
-                  <button onClick={() => setSosModal(true)} className="flex-1 bg-rose-600/20 border border-rose-500/60 text-rose-400 font-bold py-3 rounded-xl text-xs flex items-center justify-center">
+                  <button onClick={() => setSosModal(true)} className="flex-1 bg-rose-600/20 border border-rose-500/60 hover:bg-rose-600/30 text-rose-400 font-bold py-3 rounded-xl text-xs flex items-center justify-center transition">
                     <ShieldAlert className="w-4 h-4 mr-1.5" /> SOS Emergency
                   </button>
-                  <button onClick={() => setCancelModal(true)} className="flex-1 bg-gray-800 border border-gray-700 text-gray-300 font-bold py-3 rounded-xl text-xs flex items-center justify-center">
+                  <button onClick={() => setCancelModal(true)} className="flex-1 bg-gray-800 border border-gray-700 hover:border-rose-500 text-gray-300 hover:text-rose-400 font-bold py-3 rounded-xl text-xs flex items-center justify-center transition">
                     <X className="w-4 h-4 mr-1.5" /> Cancel Ride
                   </button>
                 </div>
               </div>
             ) : (
-              /* Choose a Ride Section (Target Image Pixel Perfect Match) */
+              /* Choose a Ride Section */
               <div className="space-y-3">
                 <div className="flex justify-between items-center px-1">
                   <h3 className="text-base font-black text-white">Choose a ride</h3>
-                  <button className="text-xs text-indigo-400 font-bold flex items-center hover:underline">
+                  <button onClick={() => showToast('✨ All Ride Categories Loaded')} className="text-xs text-indigo-400 font-bold flex items-center hover:underline">
                     See all <ChevronRight className="w-4 h-4 ml-0.5" />
                   </button>
                 </div>
@@ -709,7 +776,7 @@ export default function CustomerApp() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setCouponApplied(true)}
+                    onClick={() => { setCouponApplied(true); showToast('🎉 Coupon RIDEX10 Applied! 10% Discount Saved.'); }}
                     className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-md"
                   >
                     {couponApplied ? 'Applied ✓' : 'Apply Now'}
@@ -719,13 +786,17 @@ export default function CustomerApp() {
                 {/* Services Quick Grid */}
                 <div className="grid grid-cols-5 gap-2 pt-1">
                   {[
-                    { label: 'Schedule', sub: 'Book later', icon: Calendar, color: 'text-indigo-400' },
-                    { label: 'Rentals', sub: 'By the hour', icon: Clock, color: 'text-emerald-400' },
-                    { label: 'Outstation', sub: 'Long trips', icon: Navigation, color: 'text-sky-400' },
-                    { label: 'Ride Share', sub: 'Save more', icon: Users, color: 'text-purple-400' },
-                    { label: 'Airport', sub: 'Flat fare', icon: Plane, color: 'text-rose-400' },
-                  ].map((s, idx) => (
-                    <button key={idx} className="bg-gray-900/60 border border-gray-800 p-2.5 rounded-2xl flex flex-col items-center text-center">
+                    { id: 'SCHEDULE', label: 'Schedule', sub: 'Book later', icon: Calendar, color: 'text-indigo-400' },
+                    { id: 'RENTALS', label: 'Rentals', sub: 'By the hour', icon: Clock, color: 'text-emerald-400' },
+                    { id: 'OUTSTATION', label: 'Outstation', sub: 'Long trips', icon: Navigation, color: 'text-sky-400' },
+                    { id: 'SHARE', label: 'Ride Share', sub: 'Save more', icon: Users, color: 'text-purple-400' },
+                    { id: 'AIRPORT', label: 'Airport', sub: 'Flat fare', icon: Plane, color: 'text-rose-400' },
+                  ].map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => setServiceModal(s.id)}
+                      className="bg-gray-900/60 border border-gray-800 hover:border-indigo-500/50 p-2.5 rounded-2xl flex flex-col items-center text-center transition active:scale-95"
+                    >
                       <s.icon className={`w-5 h-5 mb-1 ${s.color}`} />
                       <span className="text-[10px] font-bold text-white">{s.label}</span>
                       <span className="text-[8px] text-gray-500">{s.sub}</span>
@@ -786,7 +857,7 @@ export default function CustomerApp() {
         )}
       </main>
 
-      {/* 3. Target Bottom Navigation Bar */}
+      {/* 3. Bottom Navigation Bar */}
       <nav className="bg-gray-950/90 backdrop-blur-md border-t border-gray-800/80 py-3 px-4 flex justify-around fixed bottom-0 left-0 right-0 z-30 max-w-xl mx-auto shadow-2xl">
         {[
           { id: 'HOME', label: 'Home', icon: Home },
@@ -805,6 +876,285 @@ export default function CustomerApp() {
           </button>
         ))}
       </nav>
+
+      {/* SIDE NAVIGATION DRAWER (`=`) */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex">
+          <div className="bg-gray-950 border-r border-gray-800 w-72 h-full p-5 flex flex-col justify-between shadow-2xl">
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <div className="text-xl font-black text-white flex items-center">
+                  <Car className="w-5 h-5 mr-2 text-indigo-500" /> Ride<span className="text-emerald-400">X</span>
+                </div>
+                <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-white p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl mb-6 flex items-center space-x-3">
+                <div className="w-10 h-10 bg-indigo-600 text-white rounded-full font-bold flex items-center justify-center">AJ</div>
+                <div>
+                  <div className="font-bold text-sm text-white">Alex Johnson</div>
+                  <div className="text-xs text-emerald-400">Prime Member</div>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                {[
+                  { label: 'My Trips & History', icon: History, action: () => { setCurrentTab('RIDES'); setDrawerOpen(false); } },
+                  { label: 'RideX Wallet', icon: Wallet, action: () => { setCurrentTab('WALLET'); setDrawerOpen(false); } },
+                  { label: 'Safety Center & SOS', icon: ShieldAlert, action: () => { setSosModal(true); setDrawerOpen(false); } },
+                  { label: 'Language & i18n', icon: Globe, action: () => { showToast('🌐 Language set to ' + language.toUpperCase()); setDrawerOpen(false); } },
+                  { label: 'Help & Support', icon: HelpCircle, action: () => { showToast('💬 AI Customer Support Active'); setDrawerOpen(false); } },
+                ].map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={item.action}
+                    className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-xs font-bold text-gray-300 hover:bg-gray-900 hover:text-white transition"
+                  >
+                    <item.icon className="w-4 h-4 text-indigo-400" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => { localStorage.removeItem('ridex_cust_token'); setToken(null); setDrawerOpen(false); }}
+              className="flex items-center space-x-2 text-rose-400 font-bold text-xs p-3 hover:bg-rose-950/30 rounded-xl transition"
+            >
+              <LogOut className="w-4 h-4" /> <span>Sign Out</span>
+            </button>
+          </div>
+          <div className="flex-1" onClick={() => setDrawerOpen(false)}></div>
+        </div>
+      )}
+
+      {/* NOTIFICATION DRAWER (`🔔`) */}
+      {notifOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex justify-end">
+          <div className="bg-gray-950 border-l border-gray-800 w-80 h-full p-5 flex flex-col justify-between shadow-2xl">
+            <div>
+              <div className="flex justify-between items-center border-b border-gray-800 pb-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5 text-indigo-400" />
+                  <h3 className="font-bold text-white text-sm">Notifications</h3>
+                </div>
+                <button onClick={() => setNotifOpen(false)} className="text-gray-400 hover:text-white p-1">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="bg-gray-900 border border-indigo-500/30 p-3.5 rounded-2xl">
+                  <div className="font-bold text-white">🎉 10% Discount Applied</div>
+                  <p className="text-gray-400 mt-0.5">Use code RIDEX10 to save on your next 3 rides!</p>
+                </div>
+                <div className="bg-gray-900 border border-gray-800 p-3.5 rounded-2xl">
+                  <div className="font-bold text-white">🚗 Driver Sam Speed Nearby</div>
+                  <p className="text-gray-400 mt-0.5">Driver is 2 minutes away from LD College of Engineering.</p>
+                </div>
+                <div className="bg-gray-900 border border-gray-800 p-3.5 rounded-2xl">
+                  <div className="font-bold text-white">💰 Wallet Top-Up Completed</div>
+                  <p className="text-gray-400 mt-0.5">Successfully credited $100 to your wallet balance.</p>
+                </div>
+              </div>
+            </div>
+            <button onClick={() => setNotifOpen(false)} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs">Close</button>
+          </div>
+          <div className="flex-1" onClick={() => setNotifOpen(false)}></div>
+        </div>
+      )}
+
+      {/* MAP ROUTE FILTER MODAL (`SlidersHorizontal`) */}
+      {filterModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <h3 className="font-bold text-lg text-white">Route Preferences</h3>
+              <button onClick={() => setFilterModalOpen(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              {[
+                { id: 'FASTEST', label: '⚡ Fastest Route (Default)' },
+                { id: 'AVOID_TOLLS', label: '🛣️ Avoid Toll Expressways' },
+                { id: 'EV_ONLY', label: '🌱 EV & Eco-Friendly Only' },
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setRouteFilter(f.id as any)}
+                  className={`w-full p-3.5 rounded-xl border text-left font-bold flex justify-between items-center ${
+                    routeFilter === f.id ? 'bg-indigo-600/30 border-indigo-500 text-white' : 'bg-gray-950 border-gray-800 text-gray-400'
+                  }`}
+                >
+                  <span>{f.label}</span>
+                  {routeFilter === f.id && <Check className="w-4 h-4 text-emerald-400" />}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={() => { showToast('⚡ Route Filter Updated'); setFilterModalOpen(false); }} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-xs">
+              Apply Preferences
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SPECIAL SERVICES MODAL (`Schedule`, `Rentals`, `Outstation`, `Ride Share`, `Airport`) */}
+      {serviceModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-indigo-500/40 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <h3 className="font-bold text-lg text-white">{serviceModal} Booking</h3>
+              <button onClick={() => setServiceModal(null)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+
+            {serviceModal === 'SCHEDULE' && (
+              <div className="space-y-3 text-xs">
+                <p className="text-gray-400">Book your ride in advance for a guaranteed pickup:</p>
+                <div>
+                  <label className="font-bold text-gray-400">Date</label>
+                  <input type="date" defaultValue="2026-08-16" className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white mt-1" />
+                </div>
+                <div>
+                  <label className="font-bold text-gray-400">Time</label>
+                  <input type="time" defaultValue="09:30" className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white mt-1" />
+                </div>
+              </div>
+            )}
+
+            {serviceModal === 'RENTALS' && (
+              <div className="space-y-2 text-xs">
+                <p className="text-gray-400">Select hourly rental package:</p>
+                {['2 Hours / 20 km ($35)', '4 Hours / 40 km ($65)', '8 Hours / 80 km ($120)'].map((pkg, i) => (
+                  <button key={i} onClick={() => { showToast(`🚗 Selected ${pkg}`); setServiceModal(null); }} className="w-full p-3 bg-gray-950 border border-gray-800 rounded-xl font-bold text-white text-left hover:border-indigo-500">
+                    {pkg}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {serviceModal === 'OUTSTATION' && (
+              <div className="space-y-3 text-xs">
+                <p className="text-gray-400">Intercity Outstation Booking:</p>
+                <input type="text" placeholder="Enter Destination City (e.g. Vadodara)" className="w-full bg-gray-950 border border-gray-800 rounded-xl p-3 text-white" />
+              </div>
+            )}
+
+            {serviceModal === 'SHARE' && (
+              <div className="space-y-3 text-xs">
+                <p className="text-gray-400">Shared Ride (Save 30% on fare):</p>
+                <div className="bg-indigo-950/40 border border-indigo-500/40 p-3 rounded-xl text-emerald-400 font-bold">
+                  ✓ Co-Passenger Matching Enabled
+                </div>
+              </div>
+            )}
+
+            {serviceModal === 'AIRPORT' && (
+              <div className="space-y-3 text-xs">
+                <p className="text-gray-400">Flat Rate Airport Pickup / Drop:</p>
+                <div className="bg-gray-950 p-4 rounded-xl text-center">
+                  <div className="text-xl font-black text-emerald-400">$25.00 Flat Rate</div>
+                  <p className="text-[10px] text-gray-400 mt-1">Includes all toll & airport entry fees</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                showToast(`✅ ${serviceModal} Reserved Successfully!`);
+                setServiceModal(null);
+                if (serviceModal === 'AIRPORT') setDestination('Airport Terminal 2 (Flat Rate $25)');
+              }}
+              className="w-full bg-emerald-500 text-gray-950 font-black py-3.5 rounded-xl text-sm"
+            >
+              Confirm {serviceModal}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SOS EMERGENCY MODAL */}
+      {sosModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-rose-500/60 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl space-y-4">
+            <ShieldAlert className="w-14 h-14 text-rose-500 mx-auto animate-bounce" />
+            <h3 className="text-xl font-black text-white">SOS Emergency Alert</h3>
+            <p className="text-xs text-gray-400">This will instantly dispatch safety control and alert emergency contacts.</p>
+
+            <div className="space-y-2 text-xs text-left bg-gray-950 p-3 rounded-xl border border-gray-800">
+              <div className="flex items-center text-rose-400 font-bold"><Check className="w-4 h-4 mr-1.5" /> 24/7 RideX Safety Unit Alerted</div>
+              <div className="flex items-center text-rose-400 font-bold"><Check className="w-4 h-4 mr-1.5" /> Live GPS Coordinates Shared</div>
+            </div>
+
+            <div className="flex space-x-2 pt-2">
+              <button onClick={() => setSosModal(false)} className="flex-1 bg-gray-800 text-gray-300 font-bold py-3 rounded-xl text-xs">Cancel</button>
+              <button onClick={() => { alert('⚠️ SOS Emergency Broadcast Sent!'); setSosModal(false); }} className="flex-1 bg-rose-600 text-white font-black py-3 rounded-xl text-xs shadow-lg shadow-rose-600/40">
+                DISPATCH SOS
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CANCELLATION REASON MODAL OVERLAY */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <h3 className="font-bold text-lg text-white">Cancel Ride</h3>
+              <button onClick={() => setCancelModal(false)} className="text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-gray-400">Please select a reason for cancelling this trip:</p>
+
+            <div className="space-y-2 text-xs">
+              {[
+                "⏱️ Driver taking too long to arrive",
+                "📍 Pickup location entered by mistake",
+                "🚗 Driver requested to cancel / offline ride",
+                "💳 Payment method / price issue",
+                "❌ Changed my mind / plans changed",
+              ].map((reasonText, idx) => (
+                <label
+                  key={idx}
+                  onClick={() => setCancelReason(reasonText)}
+                  className={`flex items-center space-x-3 p-3 rounded-xl border cursor-pointer transition ${
+                    cancelReason === reasonText ? 'bg-rose-950/40 border-rose-500 text-white font-bold' : 'bg-gray-950 border-gray-800 text-gray-400'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cancel_reason"
+                    checked={cancelReason === reasonText}
+                    onChange={() => setCancelReason(reasonText)}
+                    className="accent-rose-500"
+                  />
+                  <span>{reasonText}</span>
+                </label>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              placeholder="Other reason (optional)..."
+              value={customCancelReason}
+              onChange={(e) => setCustomCancelReason(e.target.value)}
+              className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-rose-500"
+            />
+
+            <div className="flex space-x-2 pt-2">
+              <button onClick={() => setCancelModal(false)} className="flex-1 bg-gray-800 text-gray-300 font-bold py-3 rounded-xl text-xs">Keep Ride</button>
+              <button onClick={handleCancelRide} className="flex-1 bg-rose-600 hover:bg-rose-500 text-white font-black py-3 rounded-xl text-xs shadow-lg shadow-rose-600/30">
+                Confirm Cancellation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
