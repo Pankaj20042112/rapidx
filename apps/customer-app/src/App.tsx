@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Car, Bike, ShieldAlert, Navigation, Wallet, Star, MessageSquare, 
   MapPin, Clock, Tag, CheckCircle2, Phone, Send, X, AlertTriangle, 
-  Home, Compass, History, User, Globe, Share2, HelpCircle, Info, ChevronRight, Plus
+  Home, Compass, History, User, Globe, Share2, HelpCircle, Info, ChevronRight, Plus, Search
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -417,7 +417,7 @@ export default function CustomerApp() {
                 </div>
 
                 {/* Vehicle Selection Cards */}
-                <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="grid grid-cols-3 gap-2 mb-3">
                   {[
                     { type: 'BIKE', label: dict.bike || 'Bike', icon: Bike, eta: '2 min' },
                     { type: 'AUTO', label: dict.auto || 'Auto', icon: Car, eta: '4 min' },
@@ -436,6 +436,14 @@ export default function CustomerApp() {
                     </button>
                   ))}
                 </div>
+
+                {/* Primary FIND RIDE Search Button */}
+                <button
+                  onClick={() => { fetchEstimate(); confirmRide(); }}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-3.5 rounded-2xl flex items-center justify-center text-sm shadow-xl shadow-indigo-600/30 mb-3 active:scale-[0.98] transition"
+                >
+                  <Search className="w-4 h-4 mr-2" /> Find Ride ({vehicleType})
+                </button>
 
                 {/* Fare & "Why this price?" Card & Confirm Ride Button */}
                 {estimate && (
