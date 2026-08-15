@@ -125,6 +125,36 @@ export default function CustomerApp() {
   }, [token, selectedCategory, couponApplied]);
 
   useEffect(() => {
+    socket.on('ride:accepted', (updatedRide: any) => {
+      showToast(`🚗 Driver Assigned! Vehicle: ${updatedRide.vehicleType || 'Cab Eco'}`);
+      setActiveRide(updatedRide);
+    });
+
+    socket.on('ride:arrived', (updatedRide: any) => {
+      showToast('📍 Driver has arrived at your pickup location!');
+      setActiveRide(updatedRide);
+    });
+
+    socket.on('ride:started', (updatedRide: any) => {
+      showToast('🟢 OTP Verified! Ride IN PROGRESS');
+      setActiveRide(updatedRide);
+    });
+
+    socket.on('ride:completed', (updatedRide: any) => {
+      showToast('🎉 Ride Completed! Thank you for riding with RideX');
+      setRatingModal(true);
+      setActiveRide(null);
+    });
+
+    return () => {
+      socket.off('ride:accepted');
+      socket.off('ride:arrived');
+      socket.off('ride:started');
+      socket.off('ride:completed');
+    };
+  }, []);
+
+  useEffect(() => {
     if (!activeRide?.id) return;
     const interval = setInterval(() => { fetchRideDetails(activeRide.id); }, 2500);
     socket.on(`chat:ride:${activeRide.id}`, (data: any) => {

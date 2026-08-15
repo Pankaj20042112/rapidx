@@ -383,6 +383,13 @@ router.post('/rides', authenticate, authorize('CUSTOMER'), (req: AuthenticatedRe
   store.rides.set(ride.id, ride);
   store.addAuditLog(req.user!.id, req.user!.role, 'RIDE_CREATED', '/rides', { rideId: ride.id });
 
+  // Broadcast WebSocket events to Driver and Admin apps
+  const io = (req as any).io;
+  if (io) {
+    io.emit('ride:created', ride);
+    io.emit('admin:ride_created', ride);
+  }
+
   return res.json({ success: true, data: ride });
 });
 
@@ -478,6 +485,14 @@ router.post('/rides/:id/accept', authenticate, authorize('DRIVER'), (req: Authen
   }
 
   store.addAuditLog(req.user!.id, req.user!.role, 'RIDE_ACCEPTED', `/rides/${ride.id}/accept`);
+
+  const io = (req as any).io;
+  if (io) {
+    io.emit('ride:accepted', ride);
+    io.emit(`ride:status:${ride.id}`, ride);
+    io.emit('admin:ride_updated', ride);
+  }
+
   return res.json({ success: true, data: ride });
 });
 
@@ -503,6 +518,13 @@ router.post('/rides/:id/arrived', authenticate, authorize('DRIVER'), (req: Authe
     ride.status = 'DRIVER_ARRIVED';
   }
   store.rides.set(ride.id, ride);
+
+  const io = (req as any).io;
+  if (io) {
+    io.emit('ride:arrived', ride);
+    io.emit(`ride:status:${ride.id}`, ride);
+  }
+
   return res.json({ success: true, data: ride });
 });
 
@@ -527,14 +549,18 @@ router.post('/rides/:id/start', authenticate, authorize('DRIVER'), (req: Authent
       startedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
-    store.rides.set(ride.id, ride);
-    return res.json({ success: true, data: ride });
+  } else {
+    ride.status = 'IN_PROGRESS';
+    ride.startedAt = new Date().toISOString();
+  }
+  store.rides.set(ride.id, ride);
+
+  const io = (req as any).io;
+  if (io) {
+    io.emit('ride:started', ride);
+    io.emit(`ride:status:${ride.id}`, ride);
   }
 
-  // Accept ride.otp, demo 8978, demo 1234, or any provided OTP
-  ride.status = 'IN_PROGRESS';
-  ride.startedAt = new Date().toISOString();
-  store.rides.set(ride.id, ride);
   return res.json({ success: true, data: ride });
 });
 
@@ -562,6 +588,14 @@ router.post('/rides/:id/complete', authenticate, authorize('DRIVER'), (req: Auth
     ride.status = 'COMPLETED';
     ride.completedAt = new Date().toISOString();
     ride.finalFare = ride.estimatedFare || 473.70;
+  }
+  store.rides.set(ride.id, ride);
+
+  const io = (req as any).io;
+  if (io) {
+    io.emit('ride:completed', ride);
+    io.emit(`ride:status:${ride.id}`, ride);
+    io.emit('admin:ride_completed', ride);
   }
 
   if (ride.driverId) {

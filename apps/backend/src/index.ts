@@ -31,6 +31,12 @@ app.get('/ready', (req, res) => {
   res.json({ status: 'ready', database: 'connected', redis: 'ready' });
 });
 
+// Attach Socket.IO instance to request object for real-time API events
+app.use((req, res, next) => {
+  (req as any).io = io;
+  next();
+});
+
 // API Routes
 app.use('/api', apiRouter);
 
