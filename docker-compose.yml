@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: ridex-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ridex_admin
+      POSTGRES_PASSWORD: ridex_secret_password
+      POSTGRES_DB: ridex_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/backend/src/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  redis:
+    image: redis:7-alpine
+    container_name: ridex-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: ridex-backend
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      JWT_SECRET: ridex-super-secret-production-key-2026
+      DATABASE_URL: postgresql://ridex_admin:ridex_secret_password@postgres:5432/ridex_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+
+  ai-service:
+    build:
+      context: ./apps/ai-service
+      dockerfile: Dockerfile
+    container_name: ridex-ai-service
+    restart: always
+    ports:
+      - "8000:8000"
+
+volumes:
+  postgres_data:

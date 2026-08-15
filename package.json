@@ -1,0 +1,21 @@
+{
+  "name": "ridex-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "RideX - Full Production Ride-Hailing Platform",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix apps/backend run dev",
+    "dev:ai": "npm --prefix apps/ai-service run dev",
+    "dev:customer": "npm --prefix apps/customer-app run dev",
+    "dev:driver": "npm --prefix apps/driver-app run dev",
+    "dev:admin": "npm --prefix apps/admin-dashboard run dev",
+    "build:all": "npm --prefix apps/backend run build && npm --prefix apps/customer-app run build && npm --prefix apps/driver-app run build && npm --prefix apps/admin-dashboard run build",
+    "test:backend": "npm --prefix apps/backend test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
