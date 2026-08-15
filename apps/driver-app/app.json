@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "RideX Driver App",
+    "slug": "ridex-driver-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/vite.svg",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./public/vite.svg",
+      "resizeMode": "contain",
+      "backgroundColor": "#070A12"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./public/vite.svg",
+        "backgroundColor": "#070A12"
+      },
+      "package": "com.ridex.driver"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a65e0d55-23b2-48d7-bc5a-86030b9545ba"
+      }
+    }
+  }
+}
