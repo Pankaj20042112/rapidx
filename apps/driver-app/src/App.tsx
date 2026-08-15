@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Power, Navigation, MapPin, DollarSign, Star, CheckCircle, 
   Clock, ShieldCheck, Upload, AlertCircle, Phone, MessageSquare, Car, ArrowRight, Flame, Target, Trophy,
-  Menu, Bell, ChevronRight, Info, Check, X, User, Edit, Share2, LogOut, Wallet, ShieldAlert, Award, FileText, CreditCard
+  Menu, Bell, ChevronRight, Info, Check, X, User, Edit, Share2, LogOut, Wallet, ShieldAlert, Award, FileText, CreditCard, RefreshCw
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -26,7 +26,7 @@ export default function DriverApp() {
   const [language, setLanguage] = useState<'en' | 'hi' | 'gu'>('en');
 
   // Duty State
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const [driverProfile, setDriverProfile] = useState<any>(null);
   const [incomingRequest, setIncomingRequest] = useState<any>({
     id: 'rd-demo-99',
@@ -42,11 +42,10 @@ export default function DriverApp() {
     otp: '8978'
   });
 
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(15);
   const [currentTrip, setCurrentTrip] = useState<any>(null);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [earningsData, setEarningsData] = useState<any>(null);
-  const [incentiveData, setIncentiveData] = useState<any>(null);
 
   // Tabs & Modals
   const [activeTab, setActiveTab] = useState<'DUTY' | 'HEATMAP' | 'EARNINGS' | 'KYC'>('DUTY');
@@ -55,17 +54,14 @@ export default function DriverApp() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [declineReasonModal, setDeclineReasonModal] = useState(false);
   const [declineReason, setDeclineReason] = useState('Too far away');
-  const [chatOpen, setChatOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Editable Profile State
   const [editName, setEditName] = useState('Rahul Sharma');
   const [editEmail, setEditEmail] = useState('rahul.sharma@ridex-driver.com');
-  const [editPhone, setEditPhone] = useState('+17777777777');
   const [editMake, setEditMake] = useState('Toyota');
   const [editModel, setEditModel] = useState('Glanza EV');
   const [editPlate, setEditPlate] = useState('GJ-01-RX-88');
-  const [editUpi, setEditUpi] = useState('rahul@okicici');
 
   useEffect(() => {
     if (token) {
@@ -89,9 +85,63 @@ export default function DriverApp() {
     return () => clearInterval(timer);
   }, [incomingRequest, countdown]);
 
+  useEffect(() => {
+    socket.on('ride:created', () => {
+      loadNewTripRequest();
+    });
+    return () => {
+      socket.off('ride:created');
+    };
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const loadNewTripRequest = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/rides/requests`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        const r = data.data[0];
+        setIncomingRequest({
+          id: r.id,
+          pickupAddress: r.pickupAddress || 'LD College of Engineering',
+          pickupSub: 'Paldi, Ahmedabad',
+          destinationAddress: r.destinationAddress || 'Chandkheda',
+          destinationSub: 'Ahmedabad, Gujarat',
+          distanceKm: 12.4,
+          durationMin: 28,
+          estimatedFare: r.fare || 473.70,
+          paymentMethod: 'Cash',
+          customerRating: 4.9,
+          otp: r.otp || '8978'
+        });
+        setCountdown(15);
+        showToast('🚖 New Trip Request Loaded!');
+      } else {
+        setIncomingRequest({
+          id: 'rd-demo-' + Math.floor(100 + Math.random() * 900),
+          pickupAddress: 'LD College of Engineering',
+          pickupSub: 'Paldi, Ahmedabad',
+          destinationAddress: 'Chandkheda',
+          destinationSub: 'Ahmedabad, Gujarat',
+          distanceKm: 12.4,
+          durationMin: 28,
+          estimatedFare: 473.70,
+          paymentMethod: 'Cash',
+          customerRating: 4.9,
+          otp: '8978'
+        });
+        setCountdown(15);
+        showToast('🚖 Trip Request Received!');
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const sendOtp = async () => {
@@ -252,7 +302,7 @@ export default function DriverApp() {
       });
       const data = await res.json();
       if (data.success) {
-        alert(`🎉 Trip Completed! Collect Cash: $${data.data.finalFare || 473.70}`);
+        alert(`🎉 Trip Completed! Collect Cash: ₹${data.data.finalFare || 473.70}`);
         setCurrentTrip(null);
         fetchDashboard();
       }
@@ -432,7 +482,7 @@ export default function DriverApp() {
         </div>
       )}
 
-      {/* 1. Header Bar (Pixel-Perfect Target Screenshot Match) */}
+      {/* 1. Header Bar */}
       <header className="px-4 py-3.5 bg-gray-950/80 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between border-b border-gray-800/60 shadow-xl">
         <div className="flex items-center space-x-3">
           <button onClick={() => setDrawerOpen(true)} className="p-2 bg-gray-900 border border-gray-800 rounded-xl text-gray-300">
@@ -459,7 +509,7 @@ export default function DriverApp() {
       {/* 2. Main Body */}
       <main className="flex-1 relative p-4 max-w-xl mx-auto w-full flex flex-col justify-between pb-24 overflow-y-auto">
 
-        {/* DUTY TAB (PIXEL-PERFECT REFERENCE DESIGN TARGET) */}
+        {/* DUTY TAB */}
         {activeTab === 'DUTY' && (
           <div className="space-y-4">
             
@@ -503,7 +553,7 @@ export default function DriverApp() {
               </div>
             </div>
 
-            {/* 4 KPI Statistics Cards Grid (Target Screenshot Match) */}
+            {/* 4 KPI Statistics Cards Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div className="bg-gray-900/60 border border-gray-800 p-3.5 rounded-3xl flex flex-col justify-between">
                 <div className="p-2 bg-emerald-600/20 text-emerald-400 rounded-xl w-fit mb-2">
@@ -550,7 +600,7 @@ export default function DriverApp() {
               </div>
             </div>
 
-            {/* Daily Peak Hours Quest Progress Card (Target Screenshot Match) */}
+            {/* Daily Peak Hours Quest Progress Card */}
             <div className="bg-gradient-to-r from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/40 p-4 rounded-3xl flex items-center justify-between shadow-xl">
               <div className="flex items-center space-x-3.5 flex-1">
                 <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl flex items-center justify-center">
@@ -560,7 +610,6 @@ export default function DriverApp() {
                   <h4 className="font-extrabold text-xs text-white">Daily Peak Hours Quest</h4>
                   <p className="text-[10px] text-gray-400 mt-0.5">Complete 3 more rides today to unlock ₹250 instant wallet bonus!</p>
                   
-                  {/* Progress Bar */}
                   <div className="w-full max-w-[160px] h-2 bg-gray-800 rounded-full mt-2 overflow-hidden border border-gray-700">
                     <div className="h-full bg-emerald-400 rounded-full" style={{ width: '70%' }}></div>
                   </div>
@@ -576,8 +625,8 @@ export default function DriverApp() {
               </div>
             </div>
 
-            {/* NEW TRIP REQUEST CARD (PIXEL-PERFECT TARGET MATCH) */}
-            {incomingRequest && (
+            {/* TRIP REQUEST CONTAINER (SHOWS NEW REQUEST OR FETCH BUTTON) */}
+            {incomingRequest ? (
               <div className="glass-panel border border-emerald-500/60 rounded-3xl p-5 shadow-2xl space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-black px-3.5 py-1.5 rounded-full text-xs uppercase tracking-wider">
@@ -588,7 +637,6 @@ export default function DriverApp() {
                   </div>
                 </div>
 
-                {/* Pickup / Drop & Route Map Thumbnail */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2 space-y-3">
                     <div className="flex items-start space-x-3">
@@ -612,7 +660,6 @@ export default function DriverApp() {
                     </div>
                   </div>
 
-                  {/* Route Map Thumbnail */}
                   <div className="bg-gray-950 border border-gray-800 rounded-2xl h-28 relative overflow-hidden flex items-center justify-center">
                     <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:16px_16px]"></div>
                     <svg className="w-full h-full" viewBox="0 0 200 100">
@@ -624,7 +671,6 @@ export default function DriverApp() {
                   </div>
                 </div>
 
-                {/* Metrics Bar */}
                 <div className="bg-gray-950 p-3.5 rounded-2xl border border-gray-800 grid grid-cols-4 gap-2 text-center">
                   <div>
                     <span className="text-[10px] text-gray-400 font-semibold">Est. Earnings</span>
@@ -647,10 +693,9 @@ export default function DriverApp() {
                   </div>
                 </div>
 
-                {/* Buttons */}
                 <div className="flex space-x-3">
                   <button
-                    onClick={() => setDeclineReasonModal(true)}
+                    onClick={declineRide}
                     className="flex-1 bg-gray-900 border border-gray-700 hover:border-rose-500 text-gray-300 font-bold py-3.5 rounded-2xl flex items-center justify-center text-sm transition"
                   >
                     <X className="w-4 h-4 mr-2" /> DECLINE
@@ -663,7 +708,21 @@ export default function DriverApp() {
                   </button>
                 </div>
               </div>
-            )}
+            ) : !currentTrip ? (
+              <div className="bg-gray-900 border border border-emerald-500/40 p-5 rounded-3xl text-center space-y-3 shadow-xl">
+                <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto border border-emerald-500/30">
+                  <RefreshCw className="w-6 h-6 animate-spin" />
+                </div>
+                <h3 className="font-extrabold text-sm text-white">Searching for Nearby Rides...</h3>
+                <p className="text-xs text-gray-400">Stay online to receive instant ride requests from customers</p>
+                <button
+                  onClick={loadNewTripRequest}
+                  className="bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-black px-5 py-3 rounded-2xl text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition"
+                >
+                  ⚡ Fetch / Load New Trip Request
+                </button>
+              </div>
+            ) : null}
 
             {/* ACTIVE TRIP CONTROL SHEET */}
             {currentTrip && (
@@ -705,14 +764,13 @@ export default function DriverApp() {
               </div>
             )}
 
-            {/* Hotspots Demand Bar (Target Screenshot Match) */}
+            {/* Hotspots Demand Bar */}
             <div className="bg-gray-900/80 border border-gray-800 p-4 rounded-3xl flex items-center justify-between shadow-xl">
               <div className="flex items-center space-x-3">
                 <Flame className="w-5 h-5 text-rose-500 animate-pulse" />
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="font-extrabold text-xs text-white">Hotspots</span>
-                    {/* Signal Strength Bar */}
                     <div className="flex space-x-1">
                       <div className="w-1.5 h-3 bg-rose-500 rounded-sm"></div>
                       <div className="w-1.5 h-3.5 bg-yellow-400 rounded-sm"></div>
@@ -790,7 +848,7 @@ export default function DriverApp() {
         )}
       </main>
 
-      {/* 3. Target Driver Bottom Navigation */}
+      {/* 3. Bottom Navigation */}
       <nav className="bg-gray-950/90 backdrop-blur-md border-t border-gray-800/80 py-3 px-6 flex justify-around fixed bottom-0 left-0 right-0 z-30 max-w-xl mx-auto shadow-2xl">
         {[
           { id: 'DUTY', label: 'Duty', icon: Car },
@@ -914,8 +972,6 @@ export default function DriverApp() {
                   { label: 'Edit Driver Profile', icon: User, action: () => { setEditProfileModal(true); setDrawerOpen(false); } },
                   { label: 'My Earnings & Ledger', icon: DollarSign, action: () => { setActiveTab('EARNINGS'); setDrawerOpen(false); } },
                   { label: 'KYC & Documents', icon: ShieldCheck, action: () => { setActiveTab('KYC'); setDrawerOpen(false); } },
-                  { label: 'Language & i18n', icon: Globe, action: () => { showToast('🌐 Language set to ' + language.toUpperCase()); setDrawerOpen(false); } },
-                  { label: 'Driver Support Desk', icon: HelpCircle, action: () => { showToast('💬 Driver Support Desk Active'); setDrawerOpen(false); } },
                 ].map((item, idx) => (
                   <button
                     key={idx}
@@ -933,7 +989,7 @@ export default function DriverApp() {
               onClick={() => { localStorage.removeItem('ridex_driver_token'); setToken(null); setDrawerOpen(false); }}
               className="flex items-center space-x-2 text-rose-400 font-bold text-xs p-3 hover:bg-rose-950/30 rounded-xl transition"
             >
-              <LogOut className="w-4 h-4" /> <span>Sign Out / Switch Account</span>
+              <LogOut className="w-4 h-4" /> <span>Sign Out</span>
             </button>
           </div>
           <div className="flex-1" onClick={() => setDrawerOpen(false)}></div>
@@ -943,7 +999,6 @@ export default function DriverApp() {
   );
 }
 
-// Auxiliary BarChart Icon helper
 function BarChart3Icon(props: any) {
   return (
     <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
