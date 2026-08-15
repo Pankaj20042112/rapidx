@@ -31,11 +31,14 @@ export default function CustomerApp() {
   // Active Ride & Chat
   const [activeRide, setActiveRide] = useState<any>(null);
   const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string }>>([]);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string }>>([
+    { sender: 'Driver', text: "Hello! I am on my way to your pickup location." }
+  ]);
   const [chatInput, setChatInput] = useState('');
   const [sosModal, setSosModal] = useState(false);
   const [ratingModal, setRatingModal] = useState(false);
   const [ratingStars, setRatingStars] = useState(5);
+  const [ratingFeedback, setRatingFeedback] = useState('Smooth and safe ride!');
 
   // Wallet & User Profile
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -211,11 +214,21 @@ export default function CustomerApp() {
       const data = await res.json();
       if (data.success) {
         setActiveRide(data.data);
-        if (data.data.status === 'COMPLETED' && !ratingModal) setRatingModal(true);
+        if (data.data.status === 'COMPLETED' && !ratingModal) {
+          setRatingModal(true);
+        }
       }
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const sendChatMessage = (textToSend?: string) => {
+    const messageText = textToSend || chatInput;
+    if (!messageText.trim() || !activeRide) return;
+    socket.emit('chat:send_message', { rideId: activeRide.id, senderId: 'CUSTOMER', message: messageText });
+    setChatMessages(prev => [...prev, { sender: 'You', text: messageText }]);
+    setChatInput('');
   };
 
   const triggerSOS = async () => {
@@ -230,6 +243,22 @@ export default function CustomerApp() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const submitRatingAndDismiss = async () => {
+    if (activeRide?.id) {
+      try {
+        await fetch(`${BACKEND_URL}/api/ratings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ rideId: activeRide.id, score: ratingStars, feedback: ratingFeedback })
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setRatingModal(false);
+    setActiveRide(null); // Clear active ride to return to home search sheet
   };
 
   return (
@@ -291,42 +320,72 @@ export default function CustomerApp() {
               <div className="relative z-20 glass-panel rounded-t-3xl p-5 shadow-2xl border-t border-indigo-500/50 max-w-xl mx-auto w-full mt-auto">
                 <div className="flex justify-between items-center border-b border-gray-800 pb-3 mb-3">
                   <div>
-                    <span className="px-3 py-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-full text-xs font-black uppercase tracking-wider">
+                    <span className={`px-3 py-1 border rounded-full text-xs font-black uppercase tracking-wider ${
+                      activeRide.status === 'COMPLETED'
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        : 'bg-indigo-600/20 text-indigo-400 border-indigo-500/30'
+                    }`}>
                       {activeRide.status.replace('_', ' ')}
                     </span>
-                    <p className="text-xs text-gray-400 mt-1">ETA: <span className="text-white font-bold">{activeRide.durationMin} mins</span></p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {activeRide.status === 'COMPLETED' ? 'Trip finished' : `ETA: ${activeRide.durationMin} mins`}
+                    </p>
                   </div>
 
-                  <div className="bg-gray-900 border border-indigo-500/50 px-4 py-2 rounded-xl text-center">
-                    <div className="text-[10px] text-gray-400 uppercase font-bold">Start OTP</div>
-                    <div className="text-xl font-black text-emerald-400 tracking-widest">{activeRide.otp}</div>
-                  </div>
+                  {activeRide.status !== 'COMPLETED' ? (
+                    <div className="bg-gray-900 border border-indigo-500/50 px-4 py-2 rounded-xl text-center">
+                      <div className="text-[10px] text-gray-400 uppercase font-bold">Start OTP</div>
+                      <div className="text-xl font-black text-emerald-400 tracking-widest">{activeRide.otp}</div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={submitRatingAndDismiss}
+                      className="bg-emerald-500 text-gray-950 font-black px-4 py-2 rounded-xl text-xs hover:bg-emerald-400"
+                    >
+                      Book New Ride
+                    </button>
+                  )}
                 </div>
 
                 {activeRide.driver && (
                   <div className="bg-gray-900 border border-gray-800 p-4 rounded-2xl mb-3 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-indigo-600 text-white rounded-full font-bold flex items-center justify-center">
-                        {activeRide.driver.fullName ? activeRide.driver.fullName[0] : 'D'}
+                        {activeRide.driver.fullName ? activeRide.driver.fullName[0] : 'S'}
                       </div>
                       <div>
                         <h4 className="font-bold text-sm text-white">{activeRide.driver.fullName || 'Sam Speed'}</h4>
                         <div className="text-xs text-yellow-400 flex items-center">
-                          <Star className="w-3 h-3 fill-current mr-1" /> {activeRide.driver.rating || '4.9'}
+                          <Star className="w-3 h-3 fill-current mr-1" /> {activeRide.driver.rating || '4.85'}
                         </div>
                       </div>
                     </div>
                     <div className="flex space-x-2">
-                      <button onClick={() => setChatOpen(true)} className="p-3 bg-gray-800 text-indigo-400 rounded-full border border-gray-700">
-                        <MessageSquare className="w-4 h-4" />
+                      <button
+                        onClick={() => setChatOpen(true)}
+                        className="p-3 bg-gray-800 hover:bg-gray-700 text-indigo-400 rounded-full border border-gray-700 shadow-md active:scale-95 transition"
+                      >
+                        <MessageSquare className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
                 )}
 
-                <button onClick={() => setSosModal(true)} className="w-full bg-rose-600/20 border border-rose-500 text-rose-400 font-bold py-3 rounded-xl flex items-center justify-center text-sm">
-                  <ShieldAlert className="w-4 h-4 mr-2" /> {dict.sosEmergency || 'SOS Emergency'}
-                </button>
+                {activeRide.status === 'COMPLETED' ? (
+                  <button
+                    onClick={() => setRatingModal(true)}
+                    className="w-full bg-emerald-500 text-gray-950 font-black py-3.5 rounded-xl flex items-center justify-center text-sm hover:bg-emerald-400"
+                  >
+                    Rate Driver & Close Receipt
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSosModal(true)}
+                    className="w-full bg-rose-600/20 border border-rose-500 text-rose-400 font-bold py-3 rounded-xl flex items-center justify-center text-sm"
+                  >
+                    <ShieldAlert className="w-4 h-4 mr-2" /> {dict.sosEmergency || 'SOS Emergency'}
+                  </button>
+                )}
               </div>
             ) : (
               /* Booking Bottom Sheet */
@@ -481,6 +540,97 @@ export default function CustomerApp() {
           </div>
         )}
       </main>
+
+      {/* CHAT MODAL OVERLAY */}
+      {chatOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md h-[520px] flex flex-col justify-between overflow-hidden shadow-2xl">
+            {/* Header */}
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-950">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-5 h-5 text-indigo-400" />
+                <h3 className="font-bold text-white text-sm">Driver Chat</h3>
+              </div>
+              <button onClick={() => setChatOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-gray-900/50">
+              {chatMessages.map((m, i) => (
+                <div key={i} className={`flex flex-col ${m.sender === 'You' ? 'items-end' : 'items-start'}`}>
+                  <div className={`px-4 py-2.5 rounded-2xl text-sm max-w-[80%] shadow-md ${
+                    m.sender === 'You' ? 'bg-indigo-600 text-white font-medium' : 'bg-gray-800 text-gray-100 border border-gray-700'
+                  }`}>
+                    {m.text}
+                  </div>
+                  <span className="text-[10px] text-gray-500 mt-1 px-1">{m.sender}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Reply Presets */}
+            <div className="px-3 py-2 bg-gray-950 flex space-x-2 overflow-x-auto border-t border-gray-800">
+              {["I'm at pickup point", "Please wait 2 mins", "Near entrance"].map((preset, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => sendChatMessage(preset)}
+                  className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-xs font-semibold text-gray-300 rounded-full whitespace-nowrap border border-gray-700"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Bar */}
+            <div className="p-3 border-t border-gray-800 flex space-x-2 bg-gray-950">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendChatMessage()}
+                placeholder="Type message to driver..."
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+              />
+              <button onClick={() => sendChatMessage()} className="bg-indigo-600 text-white p-3 rounded-xl hover:bg-indigo-500">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* RATING & DISMISSAL MODAL */}
+      {ratingModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-indigo-500/40 rounded-3xl p-6 max-w-sm w-full text-center shadow-2xl">
+            <CheckCircle2 className="w-14 h-14 text-emerald-400 mx-auto mb-2" />
+            <h3 className="text-xl font-bold text-white mb-1">Ride Completed!</h3>
+            <p className="text-xs text-gray-400 mb-4">How was your trip with driver Sam Speed?</p>
+
+            <div className="flex justify-center space-x-2 mb-4">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button key={star} onClick={() => setRatingStars(star)} className="focus:outline-none">
+                  <Star className={`w-8 h-8 ${star <= ratingStars ? 'text-yellow-400 fill-current' : 'text-gray-600'}`} />
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="text"
+              value={ratingFeedback}
+              onChange={(e) => setRatingFeedback(e.target.value)}
+              placeholder="Leave feedback..."
+              className="w-full bg-gray-950 border border-gray-700 rounded-xl px-3 py-2 text-xs text-white mb-4"
+            />
+
+            <button onClick={submitRatingAndDismiss} className="w-full bg-emerald-500 text-gray-950 font-black py-3.5 rounded-xl hover:bg-emerald-400 text-sm">
+              Submit Rating & Book New Ride
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* WHY THIS PRICE MODAL */}
       {whyPriceModal && priceBreakdown && (
