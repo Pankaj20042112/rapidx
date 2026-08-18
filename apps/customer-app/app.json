@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RideX Customer App",
-    "slug": "ridex-customer-app",
+    "slug": "repidx",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./public/vite.svg",

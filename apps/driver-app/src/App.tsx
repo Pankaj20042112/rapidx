@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = `http://${window.location.hostname}:4000`;
+const BACKEND_URL = window.location.hostname.includes('expo.app') ? 'http://10.223.168.192:4000' : `http://${window.location.hostname}:4000`;
 const socket = io(BACKEND_URL);
 
 export default function DriverApp() {
@@ -239,6 +239,17 @@ export default function DriverApp() {
     );
   }
 
+  const [stationModal, setStationModal] = useState(false);
+  const [stations, setStations] = useState<any[]>([]);
+
+  const fetchStations = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/stations`);
+      const data = await res.json();
+      if (data.success) setStations(data.data);
+    } catch (e) { console.error(e); }
+  };
+
   return (
     <div className="min-h-screen bg-gray-950 text-white flex flex-col justify-between font-sans">
       {/* Top Bar */}
@@ -249,15 +260,25 @@ export default function DriverApp() {
           </div>
         </div>
 
-        <button
-          onClick={toggleDuty}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-full font-bold text-xs border transition ${
-            isOnline ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-gray-800 border-gray-700 text-gray-400'
-          }`}
-        >
-          <Power className={`w-4 h-4 ${isOnline ? 'text-emerald-400 animate-pulse' : 'text-gray-500'}`} />
-          <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => { fetchStations(); setStationModal(true); }}
+            className="flex items-center space-x-1 px-3 py-2 rounded-full font-bold text-xs bg-gray-800 border border-gray-700 text-emerald-400 hover:border-emerald-500 transition"
+          >
+            <Flame className="w-3.5 h-3.5" />
+            <span>Stations</span>
+          </button>
+
+          <button
+            onClick={toggleDuty}
+            className={`flex items-center space-x-2 px-4 py-2 rounded-full font-bold text-xs border transition ${
+              isOnline ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400' : 'bg-gray-800 border-gray-700 text-gray-400'
+            }`}
+          >
+            <Power className={`w-4 h-4 ${isOnline ? 'text-emerald-400 animate-pulse' : 'text-gray-500'}`} />
+            <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Body */}
@@ -428,6 +449,42 @@ export default function DriverApp() {
           </div>
         )}
       </main>
+
+      {/* STATIONS MODAL */}
+      {stationModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-emerald-500/40 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-gray-800 pb-3">
+              <div className="flex items-center space-x-2">
+                <Flame className="w-5 h-5 text-emerald-400" />
+                <h3 className="font-black text-base text-white">Nearest Fuel & EV Stations</h3>
+              </div>
+              <button onClick={() => setStationModal(false)} className="p-1 text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {(stations.length > 0 ? stations : [
+                { id: 'st-1', name: 'Tata Power EV Supercharger', type: 'EV', distanceKm: 0.8, status: 'AVAILABLE', price: '₹15/kWh', slotsFree: '3/4 Guns Free' },
+                { id: 'st-2', name: 'Shell Fuel & EV Station', type: 'HYBRID', distanceKm: 1.4, status: 'OPEN', price: '₹96.4/L', slotsFree: '2/2 Fast Guns' },
+                { id: 'st-3', name: 'BPCL CNG Express Hub', type: 'CNG', distanceKm: 2.1, status: 'LOW_WAIT', price: '₹84.0/kg', slotsFree: '4 Pumps Active' }
+              ]).map(s => (
+                <div key={s.id} className="bg-gray-950 border border-gray-800 p-4 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <div className="font-bold text-sm text-white">{s.name}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{s.distanceKm} km away • <span className="text-emerald-400 font-bold">{s.price}</span></div>
+                    <div className="text-[10px] text-gray-500 mt-1 font-semibold">{s.slotsFree}</div>
+                  </div>
+                  <button onClick={() => alert(`🧭 Navigating to ${s.name}...`)} className="bg-emerald-500 text-gray-950 font-black px-3.5 py-2 rounded-xl text-xs">
+                    Navigate
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Nav */}
       <nav className="glass-panel border-t border-gray-800 py-3 px-6 flex justify-around fixed bottom-0 left-0 right-0 z-30 max-w-xl mx-auto">

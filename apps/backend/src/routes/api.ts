@@ -680,6 +680,35 @@ router.post('/sos', authenticate, (req: AuthenticatedRequest, res: Response) => 
   return res.json({ success: true, data: { sos, message: 'SOS Triggered! Safety Team & Emergency Contacts Alerted.' } });
 });
 
+// EV & Fuel Station Finder API
+router.get('/stations', (req: any, res: any) => {
+  const stations = [
+    { id: 'st-1', name: 'Tata Power EV Supercharger', type: 'EV', distanceKm: 0.8, status: 'AVAILABLE', price: '₹15/kWh', slotsFree: '3/4 Guns Free' },
+    { id: 'st-2', name: 'Shell Fuel & EV Station', type: 'HYBRID', distanceKm: 1.4, status: 'OPEN', price: '₹96.4/L', slotsFree: '2/2 Fast Guns' },
+    { id: 'st-3', name: 'BPCL CNG Express Hub', type: 'CNG', distanceKm: 2.1, status: 'LOW_WAIT', price: '₹84.0/kg', slotsFree: '4 Pumps Active' }
+  ];
+  return res.json({ success: true, data: stations });
+});
+
+// Admin Dynamic Pricing Update API
+router.post('/pricing/update', authenticate, authorize('ADMIN'), (req: AuthenticatedRequest, res: Response) => {
+  const { baseFare = 40, perKm = 14, surgeMultiplier = 1.2 } = req.body;
+  const updatedPricing = { baseFare, perKm, surgeMultiplier, updatedAt: new Date().toISOString() };
+  store.addAuditLog(req.user!.id, req.user!.role, 'PRICING_UPDATED', '/pricing/update', updatedPricing);
+  
+  const io = (req as any).io;
+  if (io) {
+    io.emit('admin:pricing_updated', updatedPricing);
+  }
+  return res.json({ success: true, data: updatedPricing });
+});
+
+// VIP RideX Pass Subscription API
+router.post('/pass/subscribe', authenticate, (req: AuthenticatedRequest, res: Response) => {
+  const pass = { id: 'pass-vip-1', tier: 'GOLD_PASS', discountPercent: 15, zeroSurge: true, expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString() };
+  return res.json({ success: true, data: { pass, message: '🎉 RideX VIP Pass Activated! Zero Surge & 15% OFF Active' } });
+});
+
 // ==========================================
 // 9. ADMIN DASHBOARD & AUDIT MODULE (/admin)
 // ==========================================

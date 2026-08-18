@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RideX Driver App",
-    "slug": "ridex-driver-app",
+    "slug": "repidx",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./public/vite.svg",

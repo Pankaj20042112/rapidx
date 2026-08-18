@@ -306,8 +306,21 @@ export default function AdminDashboard() {
                   className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-white mt-1"
                 />
               </div>
-              <button onClick={() => alert('Tariff updated successfully!')} className="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl">
-                Save & Deploy Tariff Rules
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch(`${BACKEND_URL}/api/pricing/update`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ baseFare, perKm, surgeMultiplier })
+                    });
+                    const data = await res.json();
+                    if (data.success) alert('✅ Tariff updated and broadcasted live to all mobile apps!');
+                  } catch (e) { console.error(e); }
+                }}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl transition"
+              >
+                Save & Deploy Tariff Rules Live
               </button>
             </div>
           </div>

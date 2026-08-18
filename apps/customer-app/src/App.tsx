@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-const BACKEND_URL = `http://${window.location.hostname}:4000`;
+const BACKEND_URL = window.location.hostname.includes('expo.app') ? 'http://10.223.168.192:4000' : `http://${window.location.hostname}:4000`;
 const socket = io(BACKEND_URL);
 
 export default function CustomerApp() {
@@ -276,6 +276,11 @@ export default function CustomerApp() {
                 {lang}
               </button>
             ))}
+          </div>
+
+          <div className="bg-gradient-to-r from-amber-500/20 to-purple-600/20 border border-amber-500/40 px-3 py-1.5 rounded-full flex items-center space-x-1.5 text-xs font-black text-amber-300 shadow-md">
+            <Tag className="w-3.5 h-3.5 text-amber-400" />
+            <span>VIP Pass</span>
           </div>
 
           <div className="bg-gray-800 px-3 py-1.5 rounded-full flex items-center space-x-2 text-xs border border-gray-700 font-bold">
